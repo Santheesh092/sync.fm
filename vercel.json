@@ -5,6 +5,10 @@
     {
       "src": "backend/server.js",
       "use": "@vercel/node"
+    },
+    {
+      "src": "frontend/dist/**",
+      "use": "@vercel/static"
     }
   ],
   "routes": [
@@ -13,12 +17,23 @@
       "dest": "backend/server.js"
     },
     {
+      "src": "/socket.io/(.*)",
+      "dest": "backend/server.js"
+    },
+    {
       "src": "/uploads/(.*)",
       "dest": "backend/server.js"
     },
     {
-      "src": "/(.*\\..*)",
+      "src": "/assets/(.*)",
+      "dest": "frontend/dist/assets/$1"
+    },
+    {
+      "src": "/(favicon.ico|vite.svg|manifest.json|manifest.webmanifest|registerSW.js|sw.js|workbox-.*\\.js)",
       "dest": "frontend/dist/$1"
+    },
+    {
+      "handle": "filesystem"
     },
     {
       "src": "/(.*)",
