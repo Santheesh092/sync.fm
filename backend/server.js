@@ -27,6 +27,7 @@ app.use('/uploads', express.static(uploadsDir, {
     }
 }));
 
+
 const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadsDir),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_'))
@@ -482,6 +483,27 @@ function serializeRoomState(room) {
         maxDevices: room.maxDevices,
     };
 }
+
+// ─── Frontend Serving (CATCH ALL) ───────────────────────────────────────────
+// In production, the backend serves the frontend's built files.
+const frontendDistPath = path.join(__dirname, '../frontend/dist');
+
+// Serve static assets from the frontend/dist folder
+app.use(express.static(frontendDistPath));
+
+// Handle SPAs by returning index.html for any unknown routes
+app.get('*', (req, res) => {
+    // If it's an API call that wasn't handled, return 404
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ error: 'Not Found' });
+    }
+    const indexPath = path.join(frontendDistPath, 'index.html');
+    if (fs.existsSync(indexPath)) {
+        res.sendFile(indexPath);
+    } else {
+        res.status(404).send('Frontend not built. Please run "npm run build" in the frontend directory.');
+    }
+});
 
 server.listen(PORT, () => {
     console.log(`✅ Vibez.fm server running on port ${PORT}`);

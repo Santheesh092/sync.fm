@@ -1,14 +1,16 @@
 services:
   - type: web
-    name: sync-fm-backend
+    name: sync-fm
     runtime: node
-    rootDir: backend
-    buildCommand: npm install
-    startCommand: npm start
-
-  - type: static
-    name: sync-fm-frontend
-    runtime: static
-    rootDir: frontend
+    # Run from the root directory to use the root package.json
+    rootDir: .
+    # Render's postinstall in the root handles building everything
     buildCommand: npm install && npm run build
-    staticPublishPath: dist
+    # Starts the backend, which now serves the frontend dist
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 3001
+
