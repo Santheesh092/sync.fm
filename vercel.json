@@ -3,10 +3,6 @@
   "buildCommand": "npm install --prefix backend && npm install --prefix frontend && npm run build --prefix frontend",
   "builds": [
     {
-      "src": "frontend/dist/**",
-      "use": "@vercel/static"
-    },
-    {
       "src": "backend/server.js",
       "use": "@vercel/node"
     }
@@ -15,6 +11,14 @@
     {
       "src": "/api/(.*)",
       "dest": "backend/server.js"
+    },
+    {
+      "src": "/uploads/(.*)",
+      "dest": "backend/server.js"
+    },
+    {
+      "src": "/(.*\\..*)",
+      "dest": "frontend/dist/$1"
     },
     {
       "src": "/(.*)",
