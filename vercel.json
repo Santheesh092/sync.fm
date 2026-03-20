@@ -1,0 +1,18 @@
+{
+  "builds": [
+    {
+      "src": "frontend/**",
+      "use": "@vercel/static-build",
+      "config": {
+        "distDir": "frontend/dist",
+        "buildCommand": "cd frontend && npm install && npm run build"
+      }
+    }
+  ],
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/frontend/index.html"
+    }
+  ]
+}

@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sync-fm-backend
+    runtime: node
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: NODE_ENV
+        value: production
+
+  - type: web
+    name: sync-fm-frontend
+    runtime: node
+    rootDir: frontend
+    buildCommand: npm install && npm run build
+    startCommand: npm run preview
+    envVars:
+      - key: NODE_VERSION
+        value: 22.22.0
+      - key: VITE_API_URL
+        value: https://your-backend-url.onrender.com
