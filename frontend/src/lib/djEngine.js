@@ -466,6 +466,10 @@ export class DJEngine {
         if (!deck || !deck.currentBuffer) return;
         if (deck.isPlaying) return;
         
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+
         deck.source = this.ctx.createBufferSource();
         deck.source.buffer = deck.currentBuffer;
         deck.source.playbackRate.value = deck.playbackRate;
@@ -482,6 +486,10 @@ export class DJEngine {
         const deck = this.decks[deckId];
         if (!deck || !deck.isPlaying || !deck.source) return;
         
+        if (this.ctx.state === 'suspended') {
+            this.ctx.resume();
+        }
+
         deck.source.stop();
         deck.pausedAt = (this.ctx.currentTime - deck.startTime) * deck.playbackRate;
         deck.isPlaying = false;

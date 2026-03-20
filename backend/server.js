@@ -2,6 +2,9 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
 const app = express();
 app.use(cors());
@@ -12,6 +15,23 @@ app.use((req, res, next) => {
     console.log(`[${new Date().toISOString()}] ${req.method} ${req.url}`);
     next();
 });
+
+// Serve uploads statically
+const uploadsDir = path.join(__dirname, 'uploads');
+if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
+// Serve uploads with explicit CORS for cross-device sync
+app.use('/uploads', express.static(uploadsDir, {
+    setHeaders: (res) => {
+        res.set('Access-Control-Allow-Origin', '*');
+        res.set('Cache-Control', 'public, max-age=3600');
+    }
+}));
+
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => cb(null, uploadsDir),
+    filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_'))
+});
+const upload = multer({ storage });
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -25,14 +45,16 @@ const rooms = new Map(); // roomId → roomState
 const socketToRoom = new Map(); // socketId → { roomId, role: 'host'|'listener' }
 
 // rate limiting: ip → { count, resetAt }
-const rateLimits = new Map();
+let rateLimits = new Map();
+const isDev = !process.env.NODE_ENV || process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test';
+const MAX_ROOMS_PER_HOUR = isDev ? 100 : 10;
 
 function getRoomState(roomId) {
     return rooms.get(roomId) || null;
 }
 
-function createRoom({ type, name, hostId, password, allowListenerControls, quality, maxDevices }) {
-    const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
+function createRoom({ id, type, name, hostId, password, allowListenerControls, quality, maxDevices }) {
+    const roomId = id || Math.random().toString(36).substring(2, 8).toUpperCase();
     const room = {
         id: roomId,
         type: type || 'party',
@@ -74,6 +96,12 @@ app.get('/api/time', (req, res) => {
     res.json({ now: Date.now() });
 });
 
+app.post('/api/upload', upload.single('file'), (req, res) => {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+    const fileUrl = `/uploads/${req.file.filename}`;
+    res.json({ url: fileUrl, title: req.file.originalname.replace(/\.[^.]+$/, '') });
+});
+
 app.post('/api/room', (req, res) => {
     try {
         const ip = getClientIp(req);
@@ -85,10 +113,15 @@ app.post('/api/room', (req, res) => {
             limit.count = 0;
             limit.resetAt = Date.now() + 3600000;
         }
-        if (limit.count >= 10) {
-            console.warn(`[API] Rate limit hit for ${ip}`);
-            return res.status(429).json({ error: 'Rate limit exceeded. Max 10 rooms/hour.' });
+        if (limit.count >= MAX_ROOMS_PER_HOUR) {
+            console.warn(`[API] Rate limit hit for ${ip} (${limit.count}/${MAX_ROOMS_PER_HOUR})`);
+            return res.status(429).json({ error: `Rate limit exceeded. Max ${MAX_ROOMS_PER_HOUR} rooms/hour.` });
         }
+        
+        if (limit.count > (MAX_ROOMS_PER_HOUR * 0.8)) {
+            console.warn(`[API] Rate limit warning for ${ip}: ${limit.count}/${MAX_ROOMS_PER_HOUR}`);
+        }
+
         limit.count++;
         rateLimits.set(ip, limit);
 
@@ -135,7 +168,7 @@ app.post('/api/room', (req, res) => {
 
 app.get('/api/room/:id', (req, res) => {
     const room = getRoomState(req.params.id);
-    if (!room) return res.status(404).json({ error: 'Room not found' });
+    if (!room) return res.status(200).json({ exists: false, error: 'Room not found' });
     res.json({
         id: room.id,
         type: room.type,
@@ -167,6 +200,8 @@ app.get('/api/rooms/nearby', (req, res) => {
     res.json(publicRooms);
 });
 
+const roomCleanupTimeouts = new Map();
+
 // ─── Socket.io Events ──────────────────────────────────────────────────────
 io.on('connection', (socket) => {
     console.log('[+] Connected:', socket.id);
@@ -192,9 +227,25 @@ io.on('connection', (socket) => {
 
     // ── Room: Create (new flow) ──
     socket.on('room:create', ({ roomId, roomType, roomName, deviceName, deviceType }) => {
+        // Clear cleanup timeout if it exists
+        if (roomCleanupTimeouts.has(roomId)) {
+            clearTimeout(roomCleanupTimeouts.get(roomId));
+            roomCleanupTimeouts.delete(roomId);
+            console.log(`[Room] Grace period cancelled for ${roomId} - Host reconnected`);
+        }
+
         let room = rooms.get(roomId);
         if (!room) {
-            room = createRoom({ type: roomType || 'party', name: roomName || 'My Room', hostId: socket.id });
+            room = createRoom({ id: roomId, type: roomType || 'party', name: roomName || 'My Room', hostId: socket.id });
+        } else {
+            // Remove previous host device to prevent duplicates on reload
+            for (const [deviceId, device] of room.devices.entries()) {
+                if (device.isHost) {
+                    room.devices.delete(deviceId);
+                    // Notify others that the old host socket is gone
+                    io.to(room.id).emit('device:disconnected', { deviceId });
+                }
+            }
         }
         room.hostId = socket.id;
         socket.join(room.id);
@@ -223,9 +274,9 @@ io.on('connection', (socket) => {
         if (room.password && room.password !== password) {
             return socket.emit('error', { message: 'Incorrect password' });
         }
-        
-        if (room.maxDevices > 0 && room.devices.size >= room.maxDevices) {
-            return socket.emit('error', { message: 'Room is full (Max devices reached)' });
+        // Check capacity - only if maxDevices is set and > 0 (0 interpreted as unlimited)
+        if (room.maxDevices && room.maxDevices > 0 && room.devices.size >= room.maxDevices) {
+            return socket.emit('error', { message: 'Room reached maximum device capacity' });
         }
 
         socket.join(room.id);
@@ -315,7 +366,16 @@ io.on('connection', (socket) => {
     socket.on('control:play', (data) => broadcastControl(socket, 'control:play', data));
     socket.on('control:pause', (data) => broadcastControl(socket, 'control:pause', data));
     socket.on('control:seek', (data) => broadcastControl(socket, 'control:seek', data));
-    socket.on('control:track', (data) => broadcastControl(socket, 'control:track', data));
+    socket.on('control:track', (data) => {
+        const info = socketToRoom.get(socket.id);
+        if (info) {
+            const room = rooms.get(info.roomId);
+            if (room && room.hostId === socket.id) {
+                room.track = { ...room.track, ...data };
+            }
+        }
+        broadcastControl(socket, 'control:track', data);
+    });
     socket.on('control:volume', ({ deviceId, volume }) => {
         const info = socketToRoom.get(socket.id);
         if (!info) return;
@@ -374,10 +434,19 @@ io.on('connection', (socket) => {
         if (!room) return;
 
         if (info.role === 'host') {
-            io.to(info.roomId).emit('party-closed');
-            io.to(info.roomId).emit('room:closed', { message: 'Host ended the session' });
-            if (room.syncInterval) clearInterval(room.syncInterval);
-            rooms.delete(info.roomId);
+            console.log(`[Room] Host disconnected from ${info.roomId}. Starting 60s grace period.`);
+            
+            // Start grace period for deletion
+            const timeout = setTimeout(() => {
+                console.log(`[Room] Grace period expired. Closing ${info.roomId}`);
+                io.to(info.roomId).emit('party-closed');
+                io.to(info.roomId).emit('room:closed', { message: 'Host ended the session' });
+                if (room.syncInterval) clearInterval(room.syncInterval);
+                rooms.delete(info.roomId);
+                roomCleanupTimeouts.delete(info.roomId);
+            }, 60000); // 60s grace period for better reliability
+
+            roomCleanupTimeouts.set(info.roomId, timeout);
         } else {
             room.devices.delete(socket.id);
             io.to(room.hostId).emit('listener-left', { listenerId: socket.id });
@@ -386,6 +455,7 @@ io.on('connection', (socket) => {
         socketToRoom.delete(socket.id);
     });
 });
+
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 function broadcastControl(socket, event, data) {
@@ -414,5 +484,5 @@ function serializeRoomState(room) {
 }
 
 server.listen(PORT, () => {
-    console.log(`✅ Nearby.fm server running on port ${PORT}`);
+    console.log(`✅ Vibez.fm server running on port ${PORT}`);
 });

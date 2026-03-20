@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { Radio, ArrowLeft, ArrowRight, Copy, Download, Settings, Lock, Users, Volume2 } from 'lucide-react';
 import { QRCodeCanvas } from 'qrcode.react';
 
-const SERVER_URL = 'http://localhost:3001';
+const SERVER_URL = '';
 
 const ROOM_TYPES = [
     { id: 'party', emoji: '🎉', label: 'Party Mode', path: 'party', desc: 'Music sync for gatherings' },
@@ -13,6 +13,7 @@ const ROOM_TYPES = [
     { id: 'announcement', emoji: '📢', label: 'Public Announcement', path: 'announcement', desc: 'Live mic broadcasting' },
     { id: 'event', emoji: '🎵', label: 'Event Sync', path: 'event', desc: 'Festival / silent disco' },
     { id: 'safety', emoji: '🚨', label: 'Public Safety', path: 'safety', desc: 'Emergency alert broadcasts' },
+    { id: 'dj', emoji: '🎧', label: 'DJ Mode', path: 'dj', desc: 'Professional DJ console & mixer' },
 ];
 
 const QUALITY_OPTIONS = [
@@ -102,14 +103,17 @@ export default function CreateRoom() {
             {/* Nav */}
             <nav className="relative z-20 flex items-center gap-4 px-6 py-5">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => {
+                        if (step > 1) setStep(step - 1);
+                        else navigate('/');
+                    }}
                     className="p-0 flex items-center gap-1.5 text-sm bg-transparent border-none shadow-none hover:bg-transparent focus:outline-none"
                 >
                     <ArrowLeft size={14} />
                 </button>
                 <div className="flex items-center gap-2">
                     <Radio size={18} color="#F2C21A" />
-                    <span className="font-bold">Nearby<span style={{ color: '#F2C21A' }}>.fm</span></span>
+                    <span className="font-bold">Vibez<span style={{ color: '#F2C21A' }}>.fm</span></span>
                 </div>
             </nav>
 
@@ -290,7 +294,7 @@ export default function CreateRoom() {
                         <div className="glass-card p-4 text-left mb-6 max-w-sm mx-auto">
                             <div className="text-xs font-semibold mb-2" style={{ color: '#6b8fa8' }}>📋 Invite Message</div>
                             <p className="text-sm" style={{ color: '#E8F4FD' }}>
-                                Join my {selectedType?.label} on Nearby.fm! 🎵<br />
+                                Join my {selectedType?.label} on Vibez.fm! 🎵<br />
                                 Room code: <strong style={{ color: '#F2C21A' }}>{roomId}</strong><br />
                                 Or visit: {shareUrl}
                             </p>

@@ -3,12 +3,16 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { io } from 'socket.io-client';
 import { Headphones, Volume2, VolumeX, Activity, Radio, ArrowLeft, Music } from 'lucide-react';
 import { SyncEngine } from '../lib/syncEngine';
+import { WebRTCManager } from '../lib/webrtc';
 import { createEQChain } from '../lib/effectUtils';
 import DevicePanel from '../components/DevicePanel';
 import EqualizerPanel from '../components/EqualizerPanel';
 import EffectsPanel from '../components/EffectsPanel';
 import EarModePanel from '../components/EarModePanel';
 import DimensionPanel from '../components/DimensionPanel';
+
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
 
 // Memoized Waveform Strip for performance
 const WaveformStrip = memo(({ active }) => {
@@ -37,14 +41,15 @@ const WaveformStrip = memo(({ active }) => {
     );
 });
 
-const SERVER_URL = 'http://localhost:3001';
+const SERVER_URL = '';
 
 const STATUS_TEXT = {
-    connecting: 'Connecting to server…',
-    syncing: 'Synchronizing clocks…',
-    joining: 'Joining room…',
-    waiting: 'Waiting for host to start audio…',
-    playing: 'Receiving Audio',
+    connecting: 'Connecting to room audio...',
+    syncing: 'Syncing with host...',
+    joining: 'Connecting to room audio...',
+    waiting: 'Waiting for host...',
+    playing: 'Playing',
+    paused: 'Paused',
     error: 'Connection error',
 };
 
@@ -53,6 +58,7 @@ export default function Listener() {
     const navigate = useNavigate();
 
     const [status, setStatus] = useState('connecting');
+    const [isSyncing, setIsSyncing] = useState(false);
     const [hasInteracted, setHasInteracted] = useState(false);
     const [isMuted, setIsMuted] = useState(false);
     const [volume, setVolume] = useState(0.8);
@@ -60,17 +66,21 @@ export default function Listener() {
     const [latency, setLatency] = useState(null);
     const [activeTab, setActiveTab] = useState('eq');
     const [alert, setAlert] = useState(null);
+    const [audioSuspended, setAudioSuspended] = useState(false);
+    const [isConnected, setIsConnected] = useState(false);
 
     const audioRef = useRef(null);
     const audioCtxRef = useRef(null);
+    const hasInteractedRef = useRef(false);
     const gainRef = useRef(null);
     const analyserRef = useRef(null);
     const eqFilters = useRef([]);
     const effectNodes = useRef({});
     const socketRef = useRef(null);
     const syncRef = useRef(null);
-    const webrtcConns = useRef(new Map());
+    const webrtcRef = useRef(null);
     const latencyRef = useRef(null);
+    const currentTrackIdRef = useRef(null);
 
     // ── Web Audio Setup ──────────────────────────────────────────────────────
     const initAudio = useCallback(() => {
@@ -80,47 +90,47 @@ export default function Listener() {
         audioCtxRef.current = ctx;
 
         const source = ctx.createMediaElementSource(audio);
-        const gain = ctx.createGain();
-        gainRef.current = gain;
-        gain.gain.value = isMuted ? 0 : volume; // Fix: Set initial volume immediately
-
         const eqChain = createEQChain(ctx);
         eqFilters.current = eqChain;
 
-        // Effect Chain Nodes setup
-        const effectFilter = ctx.createBiquadFilter();
-        const panner = ctx.createStereoPanner();
-        const compressor = ctx.createDynamicsCompressor();
-        const delay = ctx.createDelay(5.0);
-        const convolver = ctx.createConvolver();
-        const reverbNode = ctx.createConvolver(); // Additional convolver for Concert Hall
-        const effectGain = ctx.createGain(); // Wet/dry effect mix node
+        const masterGain = ctx.createGain();
+        masterGain.gain.setValueAtTime(volume, ctx.currentTime);
+        gainRef.current = masterGain;
+
+        // --- Protective Master Limiter (Prevents crackling/distortion) ---
+        const limiter = ctx.createDynamicsCompressor();
+        limiter.threshold.setValueAtTime(-1.0, ctx.currentTime); // Threshold -1dB
+        limiter.knee.setValueAtTime(0, ctx.currentTime);
+        limiter.ratio.setValueAtTime(20, ctx.currentTime); // Hard limiting
+        limiter.attack.setValueAtTime(0.003, ctx.currentTime);
+        limiter.release.setValueAtTime(0.1, ctx.currentTime);
 
         const analyser = ctx.createAnalyser();
         analyser.fftSize = 2048;
         analyserRef.current = analyser;
 
-        // Keep them around to dynamically manipulate connections in effectUtils.js
+        // Keep nodes for effects and dimensions
         effectNodes.current = { 
             ctx, 
-            gain,
-            eqOutput: eqChain[eqChain.length - 1], // Output from EQ
+            gain: masterGain,
+            eqOutput: eqChain[eqChain.length - 1],
             analyser,
-            effectFilter, 
-            panner, 
-            compressor,
-            delay,
-            convolver,
-            reverbNode,
-            effectGain,
+            effectFilter: ctx.createBiquadFilter(), 
+            panner: ctx.createStereoPanner(), 
+            compressor: ctx.createDynamicsCompressor(),
+            delay: ctx.createDelay(5.0),
+            convolver: ctx.createConvolver(),
+            reverbNode: ctx.createConvolver(),
+            effectGain: ctx.createGain(),
             destination: ctx.destination
         };
 
-        // Initial default route: source -> gain -> eq -> analyser -> destination (no effect applied initially)
-        source.connect(gain);
-        let node = gain;
-        eqChain.forEach(f => { node.connect(f); node = f; });
-        node.connect(analyser); // EQ Output straight to Analyser initially
+        // Routing: source -> eqChain -> limiter -> masterGain -> analyser -> destination
+        source.connect(eqChain[0]);
+        let lastEqNode = eqChain[eqChain.length - 1];
+        lastEqNode.connect(limiter);
+        limiter.connect(masterGain);
+        masterGain.connect(analyser);
         analyser.connect(ctx.destination);
     }, [volume]);
 
@@ -133,29 +143,39 @@ export default function Listener() {
         sync.attachAudio(audioRef.current);
 
         socket.on('connect', async () => {
+            setIsConnected(true);
             setStatus('syncing');
+            setIsSyncing(true);
             await sync.measureOffset();
-            sync.startContinuousSync();
+            setIsSyncing(false);
+            sync.startContinuousSync(isMobile ? 10000 : 5000);
 
             setStatus('joining');
             socket.emit('room:join', {
                 roomId,
-                deviceName: navigator.userAgent.includes('Mobile') ? 'Mobile Device' : 'Web Browser',
-                deviceType: navigator.userAgent.includes('Mobile') ? 'mobile' : 'desktop',
+                deviceName: isMobile ? 'Mobile Device' : 'Web Browser',
+                deviceType: isMobile ? 'mobile' : 'desktop',
             });
+        });
+        
+        socket.on('disconnect', () => {
+            setIsConnected(false);
         });
 
         socket.on('room:joined', ({ state }) => {
             setStatus('waiting');
             if (state?.track?.url) {
                 setTrackInfo({ title: state.track.title, artist: state.track.artist });
-                if (audioRef.current) audioRef.current.src = state.track.url;
+                if (audioRef.current) {
+                    audioRef.current.src = state.track.url;
+                    currentTrackIdRef.current = state.track.url;
+                }
             }
         });
 
         socket.on('error', ({ message }) => {
             setStatus('error');
-            alert(message);
+            window.alert(message);
             navigate('/join-room');
         });
 
@@ -166,27 +186,45 @@ export default function Listener() {
             navigate('/');
         });
         socket.on('room:kicked', () => {
-            alert('You were removed from the room.');
+            window.alert('You were removed from the room.');
             navigate('/');
         });
 
         // ── Sync handler ──
         socket.on('sync:broadcast', (data) => {
-            if (!hasInteracted) { setStatus('waiting'); return; }
+            if (!hasInteractedRef.current) { 
+                if (status !== 'waiting') setStatus('waiting');
+                return; 
+            }
             const audio = audioRef.current;
             if (!audio) return;
 
-            // Load new track if changed
-            if (data.trackId && audio.src !== data.trackId) {
+            // Load new track if changed (compare filename/relative path, not absolute audio.src)
+            // Skip this if WebRTC is actively providing a stream (srcObject is present)
+            if (!audio.srcObject && data.trackId && currentTrackIdRef.current !== data.trackId) {
+                console.log(`[Listener] Track changed to: ${data.trackId}`);
                 audio.src = data.trackId;
                 audio.load();
+                currentTrackIdRef.current = data.trackId;
+
+                // After load(), readyState drops to 0 so applySync's play guard would fail.
+                // Defer the sync until the browser says it can play the new track.
+                const onCanPlay = () => {
+                    audio.removeEventListener('canplay', onCanPlay);
+                    sync.applySync(data);
+                    setStatus(data.isPlaying ? 'playing' : 'paused');
+                };
+                audio.addEventListener('canplay', onCanPlay);
+                // Still update the status label immediately so the UI feels responsive
+                setStatus(data.isPlaying ? 'playing' : 'paused');
+                return; // skip the immediate applySync below
             }
 
             sync.applySync(data);
-            setStatus('playing');
+            setStatus(data.isPlaying ? 'playing' : 'paused');
 
             // Measure our latency from the server timestamp
-            const lag = Math.abs(Date.now() + sync.offset - data.serverTime);
+            const lag = Math.abs(performance.now() + sync.offset - data.serverTime);
             setLatency(Math.round(lag));
 
             // Ack with latency
@@ -196,7 +234,21 @@ export default function Listener() {
         // ── Track info ──
         socket.on('control:track', (data) => {
             setTrackInfo({ title: data.title || 'Unknown', artist: data.artist || '' });
-            if (audioRef.current && data.url) audioRef.current.src = data.url;
+            if (audioRef.current && data.url) {
+                const audio = audioRef.current;
+                audio.src = data.url;
+                audio.load(); // Start buffering immediately so readyState >= 2 when sync arrives
+                currentTrackIdRef.current = data.url;
+                // If the listener already interacted (autoplay unlocked), attempt to play immediately
+                if (hasInteractedRef.current) {
+                    audio.play().then(() => {
+                        setStatus('playing');
+                    }).catch((e) => {
+                        // Play may fail due to autoplay policies; we'll rely on the next sync packet
+                        console.warn('[Listener] Autoplay after track change was blocked:', e);
+                    });
+                }
+            }
         });
 
         // ── Volume/mute from host ──
@@ -207,37 +259,36 @@ export default function Listener() {
         socket.on('room:alert', (alertData) => setAlert(alertData));
 
         // ── WebRTC (for mic broadcasts from host) ──
-        socket.on('offer', async ({ senderId, offer }) => {
-            const pc = new RTCPeerConnection({ iceServers: [{ urls: 'stun:stun.l.google.com:19302' }] });
-            webrtcConns.current.set(senderId, pc);
+        const webrtc = new WebRTCManager(socket);
+        webrtcRef.current = webrtc;
+        webrtc.onTrack = (stream) => {
+            if (!audioRef.current) return;
+            // Native fallback prevention: if WebRTC works, disable sync offset for URL playback
+            sync.destroy();
+            
+            audioRef.current.srcObject = stream;
+            initAudio();
+            audioRef.current.play().catch(() => { });
+            setStatus('playing');
+        };
 
-            pc.ontrack = (event) => {
-                if (!audioRef.current) return;
-                audioRef.current.srcObject = event.streams[0];
-                initAudio();
-                audioRef.current.play().catch(() => { });
-                setStatus('playing');
-            };
-
-            pc.onicecandidate = (e) => {
-                if (e.candidate) socket.emit('ice-candidate', { targetId: senderId, candidate: e.candidate });
-            };
-
-            await pc.setRemoteDescription(new RTCSessionDescription(offer));
-            const answer = await pc.createAnswer();
-            await pc.setLocalDescription(answer);
-            socket.emit('answer', { targetId: senderId, answer });
-        });
-
-        socket.on('ice-candidate', async ({ senderId, candidate }) => {
-            const pc = webrtcConns.current.get(senderId);
-            if (pc) await pc.addIceCandidate(new RTCIceCandidate(candidate)).catch(() => { });
-        });
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                if (syncRef.current && status === 'playing') {
+                    syncRef.current.measureOffset();
+                }
+                if (audioCtxRef.current && audioCtxRef.current.state === 'suspended' && hasInteractedRef.current) {
+                    setAudioSuspended(true);
+                }
+            }
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
 
         return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
             sync.destroy();
             socket.disconnect();
-            webrtcConns.current.forEach(pc => pc.close());
+            webrtcRef.current?.disconnectAll();
         };
     }, [roomId, navigate]);
 
@@ -249,13 +300,40 @@ export default function Listener() {
 
     const handleInteract = () => {
         setHasInteracted(true);
+        hasInteractedRef.current = true;
+        
+        // 1. Prime the audio element with a tiny silent WAV (unlocks it for future play() calls)
+        const silentWav = 'data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA';
+        const audio = audioRef.current;
+        if (audio && !audio.src) {
+            audio.src = silentWav;
+            audio.play().then(() => {
+                console.log('[Listener] Audio element primed with user gesture');
+            }).catch(e => console.warn('[Listener] Priming failed:', e));
+        }
+
+        // 2. Initialize the Web Audio API context
         initAudio();
-        if (audioCtxRef.current?.state === 'suspended') audioCtxRef.current.resume();
-        if (audioRef.current?.src) audioRef.current.play().catch(() => { });
+        if (audioCtxRef.current?.state === 'suspended') {
+            audioCtxRef.current.resume().then(() => {
+                console.log('[Listener] AudioContext resumed');
+                setAudioSuspended(false);
+            });
+        } else {
+            setAudioSuspended(false);
+        }
+        
+        // 3. Re-trigger actual track if already set
+        if (audio && audio.src && audio.src !== silentWav) {
+            audio.play()
+                .then(() => console.log('[Listener] Playback resumed after interaction'))
+                .catch(e => console.warn('[Listener] Playback resumed failed:', e));
+        }
     };
 
     // ── Tap-to-start gate ────────────────────────────────────────────────────
-    if (!hasInteracted) {
+    const renderGate = () => {
+        if (hasInteracted) return null;
         return (
             <div className="min-h-screen flex items-center justify-center p-6 bg-[#050E1A]">
                 <div className="glass-panel p-10 rounded-[32px] text-center max-w-sm w-full animate-slide-up relative overflow-hidden"
@@ -284,16 +362,18 @@ export default function Listener() {
                         Experience synchronized high-fidelity audio direct from the host console.
                     </p>
 
-                    <button onClick={handleInteract}
+                    <button 
+                        onClick={!isIOS ? handleInteract : undefined}
+                        onTouchEnd={isIOS ? handleInteract : undefined}
                         className="w-full py-4 rounded-2xl flex items-center justify-center gap-3 font-bold text-sm tracking-wider uppercase transition-all hover:scale-[1.02] active:scale-95 group relative overflow-hidden"
                         style={{ background: 'linear-gradient(90deg, #00CFFF, #0087FF)', boxShadow: '0 8px 20px rgba(0, 207, 255, 0.3)' }}>
                         <div className="absolute inset-0 bg-white/20 translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-500 skew-x-[-20deg]" />
-                        <Music size={18} /> Enter Listening Room
+                        <Music size={18} /> Tap anywhere to enable audio
                     </button>
                 </div>
             </div>
         );
-    }
+    };
 
     const isLive = status === 'playing';
 
@@ -301,6 +381,8 @@ export default function Listener() {
         <div className="min-h-screen flex flex-col bg-[#050E1A] text-white overflow-hidden">
             <audio ref={audioRef} preload="auto" crossOrigin="anonymous" />
 
+            {!hasInteracted ? renderGate() : (
+                <>
             {/* Alert Banner */}
             {alert && (
                 <div className="alert-banner m-4 flex items-center gap-3 animate-slide-down">
@@ -313,11 +395,21 @@ export default function Listener() {
                 </div>
             )}
 
+            {audioSuspended && (
+                <div className="m-4 flex items-center gap-3 animate-slide-down bg-yellow-500/20 border border-yellow-500 p-4 rounded-xl cursor-pointer" onClick={handleInteract}>
+                    <span className="text-2xl">⏸️</span>
+                    <div>
+                        <div className="font-bold text-yellow-500">Audio paused — tap to resume</div>
+                        <div className="text-sm">Your browser paused the audio. Tap here to resume playback.</div>
+                    </div>
+                </div>
+            )}
+
             {/* ═══ Header ═══ */}
             <header className="h-16 px-6 flex items-center justify-between border-b relative z-10 sticky top-0"
                 style={{ borderColor: 'rgba(255,255,255,0.06)', background: 'rgba(5, 14, 26, 0.8)', backdropFilter: 'blur(20px)' }}>
                 <div className="flex items-center gap-4">
-                    <button onClick={() => navigate('/')} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: '#6b8fa8' }}>
+                    <button onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')} className="p-2 -ml-2 rounded-full hover:bg-white/5 transition-colors" style={{ color: '#6b8fa8' }}>
                         <ArrowLeft size={20} />
                     </button>
                     <div className="flex flex-col">
@@ -329,8 +421,10 @@ export default function Listener() {
                 <div className="flex items-center gap-4">
                     {/* Sync Indicator */}
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/5 bg-white/5 shadow-inner">
-                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px] ${latency < 100 ? 'bg-[#00FF94] shadow-[#00FF94]' : latency < 300 ? 'bg-[#F2C21A] shadow-[#F2C21A]' : 'bg-[#FF4444] shadow-[#FF4444]'}`} />
-                        <span className="text-[10px] font-mono font-bold tracking-tighter" style={{ color: '#6b8fa8' }}>{latency}ms</span>
+                        <div className={`w-1.5 h-1.5 rounded-full animate-pulse shadow-[0_0_8px] ${!isConnected ? 'bg-[#FF4444] shadow-[#FF4444]' : latency < 300 ? 'bg-[#00FF94] shadow-[#00FF94]' : 'bg-[#F2C21A] shadow-[#F2C21A]'}`} />
+                        <span className="text-[10px] font-bold tracking-tighter uppercase" style={{ color: '#6b8fa8' }}>
+                            {!isConnected ? 'Reconnecting...' : latency === null ? 'Connecting...' : latency < 300 ? 'You are in sync' : 'Syncing...'}
+                        </span>
                     </div>
 
                     <div className="flex items-center gap-2 px-3 py-1.5 rounded-full border border-[#00CFFF]/20 bg-[#00CFFF]/5">
@@ -372,7 +466,7 @@ export default function Listener() {
                                 <div className="text-center px-4">
                                     <div className="text-[10px] font-black uppercase tracking-[0.2em] text-[#6b8fa8] mb-1">Channel</div>
                                     <div className={`text-lg font-black uppercase tracking-tighter transition-colors duration-500 ${isLive ? 'text-white' : 'text-white/20'}`}>
-                                        {isLive ? 'Live Mix' : 'Offline'}
+                                        {status === 'playing' ? 'Live Mix' : status === 'paused' ? 'Paused' : 'Offline'}
                                     </div>
                                 </div>
                             </div>
@@ -444,13 +538,21 @@ export default function Listener() {
                     {/* Active Tab Panel */}
                     <div className={`transition-all duration-300 ${activeTab ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none absolute'}`}>
                         {activeTab === 'eq' && <EqualizerPanel filters={eqFilters.current} />}
-                        {activeTab === 'effects' && <EffectsPanel filters={eqFilters.current} />}
-                        {activeTab === 'dimensions' && <DimensionPanel filters={eqFilters.current} />}
+                        {activeTab === 'effects' && <EffectsPanel audioNodes={effectNodes.current} onInitAudio={() => {}} />}
+                        {activeTab === 'dimensions' && (
+                            <DimensionPanel 
+                                audioNodes={effectNodes.current} 
+                                trackUrl={audioRef.current?.src}
+                                trackTitle={trackInfo.title}
+                            />
+                        )}
                         {activeTab === 'ear' && <EarModePanel filters={eqFilters.current} />}
                     </div>
 
                 </div>
             </main>
+            </>
+            )}
         </div>
     );
 }

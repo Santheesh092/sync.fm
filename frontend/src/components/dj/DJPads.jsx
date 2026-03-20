@@ -60,8 +60,14 @@ export default function DJPads({ audioContext, destination }) {
         }
     }, [audioContext]);
 
-    const handlePadDown = (padIndex, sampleId) => {
+    const handlePadDown = async (padIndex, sampleId) => {
         if (!audioContext || !destination) return;
+        
+        // Ensure context is running (required for many browsers)
+        if (audioContext.state === 'suspended') {
+            await audioContext.resume();
+        }
+        
         playSample(audioContext, destination, sampleId);
         setActivePads(prev => ({ ...prev, [padIndex]: true }));
     };
@@ -77,7 +83,7 @@ export default function DJPads({ audioContext, destination }) {
     }
 
     return (
-        <div className="p-4 sm:p-6 rounded-3xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] mt-4 w-full overflow-hidden relative"
+        <div className="p-4 sm:p-6 rounded-3xl border border-white/5 shadow-[0_20px_50px_rgba(0,0,0,0.8)] w-full overflow-hidden relative"
              style={{ background: 'var(--brushed-metal)' }}>
             
             {/* Glossy Overlay for the entire sampler */}
@@ -106,7 +112,7 @@ export default function DJPads({ audioContext, destination }) {
                 </div>
             </div>
 
-            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-3 relative z-10">
+            <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-4 lg:grid-cols-8 gap-2 sm:gap-3 relative z-10">
                 {padList.map((pad, i) => {
                     const isActive = activePads[i];
                     const style = SAMPLE_STYLES[pad.id] || SAMPLE_STYLES.default;
@@ -114,7 +120,7 @@ export default function DJPads({ audioContext, destination }) {
                     
                     return (
                         <button key={i}
-                             className={`group relative aspect-square rounded-2xl transition-all duration-75 flex flex-col items-center justify-center gap-2 overflow-hidden border ${isEmpty ? 'opacity-10 pointer-events-none' : ''}`}
+                             className={`group relative aspect-square rounded-xl sm:rounded-2xl transition-all duration-75 flex flex-col items-center justify-center gap-1 sm:gap-2 overflow-hidden border ${isEmpty ? 'opacity-10 pointer-events-none' : ''}`}
                              style={{
                                 background: isActive ? style.color : 'rgba(0,0,0,0.4)',
                                 borderColor: isActive ? style.color : 'rgba(255,255,255,0.03)',
@@ -140,13 +146,13 @@ export default function DJPads({ audioContext, destination }) {
                                 {style.icon}
                             </div>
                             
-                            <span className={`text-[8px] sm:text-[9px] font-black uppercase text-center leading-tight transition-colors relative z-10 tracking-widest ${isActive ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'text-white/20 group-hover:text-white/60'}`}>
+                            <span className={`text-[7px] sm:text-[9px] font-black uppercase text-center leading-tight transition-colors relative z-10 tracking-widest ${isActive ? 'text-white drop-shadow-[0_0_5px_rgba(255,255,255,0.5)]' : 'text-white/20 group-hover:text-white/60'}`}>
                                 {pad.label}
                             </span>
 
                             {/* Premium LED Corner indicator */}
                             {!isEmpty && (
-                                <div className="absolute top-2 right-2 w-1.5 h-1.5 rounded-full z-20" 
+                                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 w-1 sm:h-1.5 sm:w-1.5 h-1 rounded-full z-20" 
                                      style={{ 
                                         background: isActive ? '#fff' : style.color, 
                                         boxShadow: isActive ? `0 0 10px #fff` : `0 0 5px ${style.color}, inset 0 0 2px rgba(255,255,255,0.5)` 

@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Radio, Camera, Link, Wifi, RefreshCw } from 'lucide-react';
 
-const SERVER_URL = 'http://localhost:3001';
+const SERVER_URL = '';
 
 export default function JoinRoom() {
     const navigate = useNavigate();
@@ -134,14 +134,14 @@ export default function JoinRoom() {
             {/* Nav */}
             <nav className="relative z-20 flex items-center gap-4 px-6 py-5">
                 <button
-                    onClick={() => navigate('/')}
+                    onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
                     className="p-0 flex items-center gap-1.5 text-sm bg-transparent border-none shadow-none hover:bg-transparent focus:outline-none"
                 >
                     <ArrowLeft size={14} />
                 </button>
                 <div className="flex items-center gap-2">
                     <Radio size={18} color="#F2C21A" />
-                    <span className="font-bold">Nearby<span style={{ color: '#F2C21A' }}>.fm</span></span>
+                    <span className="font-bold">Vibez<span style={{ color: '#F2C21A' }}>.fm</span></span>
                 </div>
             </nav>
 
@@ -186,7 +186,7 @@ export default function JoinRoom() {
                             )}
                         </div>
                         <p className="text-center text-sm mt-4" style={{ color: '#6b8fa8' }}>
-                            Point camera at a Nearby.fm QR code
+                            Point camera at a Vibez.fm QR code
                         </p>
                         {/* jsQR CDN script */}
                         <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js" async />
@@ -213,7 +213,7 @@ export default function JoinRoom() {
                             </p>
                             <input
                                 className="input-field text-sm py-3"
-                                placeholder="https://nearby.fm/join/ABCD12"
+                                placeholder="https://vibez.fm/join/ABCD12"
                                 onChange={e => {
                                     const match = e.target.value.match(/\/join\/([A-Z0-9]+)/i) || e.target.value.match(/\/party\/([A-Z0-9]+)/i);
                                     if (match) setRoomCode(match[1].toUpperCase());

@@ -11,8 +11,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'Nearby.fm',
-        short_name: 'Nearby.fm',
+        name: 'Vibez.fm',
+        short_name: 'Vibez.fm',
         description: 'Real-time synchronized audio across unlimited devices',
         theme_color: '#0B3553',
         background_color: '#050E1A',
@@ -25,8 +25,17 @@ export default defineConfig({
   ],
   server: {
     host: true,
+    allowedHosts: true,
     proxy: {
       '/api': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/socket.io': {
+        target: 'http://localhost:3001',
+        ws: true,
+      },
+      '/uploads': {
         target: 'http://localhost:3001',
         changeOrigin: true,
       }

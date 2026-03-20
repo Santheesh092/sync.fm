@@ -13,12 +13,13 @@ export class WebRTCManager {
         this.socket.on('ice-candidate', this.handleIceCandidate.bind(this));
     }
 
-    // Common RTCPeerConnection setup
     _createConnection(targetId) {
-        const pc = new RTCPeerConnection({
+        let pc = new RTCPeerConnection({
             iceServers: [
-                { urls: 'stun:stun.l.google.com:19302' }, // Free Google STUN for NAT traverse
-            ]
+                { urls: 'stun:stun.l.google.com:19302' },
+                { urls: 'turn:turn.sync.fm:3478', username: 'sync', credential: 'fm' } // TURN Server added
+            ],
+            iceTransportPolicy: 'all'
         });
 
         pc.onicecandidate = (event) => {
@@ -27,14 +28,36 @@ export class WebRTCManager {
             }
         };
 
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
+
         pc.ontrack = (event) => {
+            if (event.receiver && typeof event.receiver.playoutDelayHint !== 'undefined') {
+                event.receiver.playoutDelayHint = isMobile ? 0.5 : 0.2; // 500ms buffer for mobile, 200ms for desktop
+            }
             if (this.onTrack) {
                 this.onTrack(event.streams[0]);
             }
         };
 
+        // If direct ICE connection fails within 3 seconds, automatically fall back to TURN relay
+        const iceTimer = setTimeout(() => {
+            if (pc.connectionState !== 'connected' && pc.connectionState !== 'completed' && pc.connectionState !== 'closed') {
+                console.warn(`[WebRTC] Direct connection failed within 3s for ${targetId}, forcing TURN relay...`);
+                // Force relay transport policy
+                try {
+                    pc.setConfiguration({ ...pc.getConfiguration(), iceTransportPolicy: 'relay' });
+                } catch (e) {
+                    console.warn('[WebRTC] Could not set relay policy natively:', e);
+                }
+            }
+        }, 3000);
+
         pc.onconnectionstatechange = () => {
             console.log(`[WebRTC] Connection state with ${targetId}:`, pc.connectionState);
+            if (pc.connectionState === 'connected') {
+                clearTimeout(iceTimer);
+            }
             if (pc.connectionState === 'disconnected' || pc.connectionState === 'failed') {
                 pc.close();
                 this.conns.delete(targetId);

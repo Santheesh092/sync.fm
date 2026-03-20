@@ -1,5 +1,5 @@
 /**
- * Nearby.fm — Effect Utilities & EQ Presets
+ * Vibez.fm — Effect Utilities & EQ Presets
  * Web Audio API node factories for effects and equalizer bands
  */
 
@@ -46,7 +46,7 @@ export const EAR_MODES = {
 
 // ─── Create EQ Filter Chain ────────────────────────────────────────────────
 export function createEQChain(ctx) {
-    return EQ_BANDS.map((freq, i) => {
+    const filters = EQ_BANDS.map((freq, i) => {
         const filter = ctx.createBiquadFilter();
         filter.type = i === 0 ? 'lowshelf' : i === EQ_BANDS.length - 1 ? 'highshelf' : 'peaking';
         filter.frequency.value = freq;
@@ -54,6 +54,13 @@ export function createEQChain(ctx) {
         filter.Q.value = 1.0;
         return filter;
     });
+    
+    // Connect them in series
+    for (let i = 0; i < filters.length - 1; i++) {
+        filters[i].connect(filters[i + 1]);
+    }
+    
+    return filters;
 }
 
 export function applyEQGains(filters, gains) {
@@ -165,7 +172,7 @@ export function applyEffect(ctx, effectId, nodes) {
         compressor, delay, convolver, effectGain 
     } = nodes;
 
-    const now = ctx.currentTime;
+    const now = ctx?.currentTime || 0;
     const tc = 0.05; // Quick but smooth
 
     try {
@@ -231,7 +238,7 @@ export function applyEffect(ctx, effectId, nodes) {
             convolver.buffer = createImpulseResponse(ctx, 'hall');
             eqOutput.connect(analyser);
             eqOutput.connect(convolver);
-            effectGain.gain.setTargetAtTime(0.5, now, tc);
+            effectGain.gain.setTargetAtTime(0.7, now, tc);
             convolver.connect(effectGain);
             effectGain.connect(analyser);
             break;
@@ -242,7 +249,7 @@ export function applyEffect(ctx, effectId, nodes) {
             eqOutput.connect(analyser);
             eqOutput.connect(delay);
             delay.connect(convolver);
-            effectGain.gain.setTargetAtTime(0.45, now, tc);
+            effectGain.gain.setTargetAtTime(0.6, now, tc);
             convolver.connect(effectGain);
             effectGain.connect(analyser);
             break;

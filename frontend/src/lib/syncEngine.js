@@ -1,5 +1,5 @@
 /**
- * Nearby.fm — Sync Engine
+ * Vibez.fm — Sync Engine
  * NTP clock sync + drift correction for synchronized audio playback
  */
 
@@ -20,23 +20,26 @@ export class SyncEngine {
     /** Measure clock offset using NTP-like algorithm */
     async measureOffset(samples = SYNC_SAMPLES) {
         const results = [];
+        console.log(`[SyncEngine] Starting synchronization (${samples} samples)...`);
 
         for (let i = 0; i < samples; i++) {
             const t0 = performance.now();
             try {
-                const res = await fetch(SYNC_ENDPOINT);
+                // Add timestamp to avoid browser caching of the time response
+                const res = await fetch(`${SYNC_ENDPOINT}?t=${Date.now()}`, { cache: 'no-store' });
                 const { now: serverTime } = await res.json();
                 const t1 = performance.now();
                 const rtt = t1 - t0;
+                // Offset = ServerTime - ClientTime (at middle of request)
                 const offset = serverTime - (t0 + rtt / 2);
                 results.push({ offset, rtt });
             } catch (e) {
-                console.warn('[SyncEngine] HTTP fetch failed, using socket fallback');
+                console.warn('[SyncEngine] HTTP fetch failed, using socket fallback', e);
                 // Socket fallback
                 await new Promise(resolve => {
-                    const t0s = Date.now();
-                    this.socket.emit('sync-time', { clientTime: t0s }, (resp) => {
-                        const t1s = Date.now();
+                    const t0s = performance.now();
+                    this.socket.emit('sync-time', { clientTime: Date.now() }, (resp) => {
+                        const t1s = performance.now();
                         const rtt = t1s - t0s;
                         results.push({ offset: resp.serverTime - (t0s + rtt / 2), rtt });
                         resolve();
@@ -46,13 +49,18 @@ export class SyncEngine {
             await new Promise(r => setTimeout(r, 50));
         }
 
+        if (results.length === 0) {
+            console.error('[SyncEngine] Sync failed: no samples collected');
+            return { offset: this.offset, rtt: this.roundTripTime };
+        }
+
         // Sort by lowest RTT, take best 3
         results.sort((a, b) => a.rtt - b.rtt);
         const best = results.slice(0, Math.min(3, results.length));
         this.offset = best.reduce((s, r) => s + r.offset, 0) / best.length;
         this.roundTripTime = best.reduce((s, r) => s + r.rtt, 0) / best.length;
 
-        console.log(`[SyncEngine] offset=${this.offset.toFixed(1)}ms RTT=${this.roundTripTime.toFixed(1)}ms`);
+        console.log(`[SyncEngine] Sync complete: offset=${this.offset.toFixed(1)}ms RTT=${this.roundTripTime.toFixed(1)}ms`);
         return { offset: this.offset, rtt: this.roundTripTime };
     }
 
@@ -74,30 +82,52 @@ export class SyncEngine {
         const audio = this._audioElement;
         if (!audio || !data) return;
 
-        const lag = (Date.now() + this.offset - data.serverTime) / 1000; // seconds
-        const expectedPos = data.position + lag;
+        // Determine buffer based on device type
+        const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+        const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
+        const bufferDelay = isMobile ? 0.5 : 0.2; // 500ms for mobile, 200ms for desktop
+
+        // Use performance.now() + offset to get current server time estimate
+        const nowServer = performance.now() + this.offset;
+        const lag = (nowServer - data.serverTime) / 1000; // seconds
+        
+        // Ensure expected position isn't negative, apply buffer delay
+        const expectedPos = Math.max(0, data.position + lag - bufferDelay);
         const drift = audio.currentTime - expectedPos;
         const absDrift = Math.abs(drift);
 
         // Hard seek if drift > 500ms
         if (absDrift > 0.5) {
+            console.log(`[SyncEngine] Hard seek triggered: drift=${drift.toFixed(3)}s`);
             audio.currentTime = expectedPos;
             audio.playbackRate = data.playbackRate || 1;
             return;
         }
 
-        // Soft correction via playback rate ±1% for drift > 30ms
-        if (absDrift > 0.03) {
-            const correction = drift > 0 ? 0.99 : 1.01;
+        // Soft correction via playback rate ±0.05% for drift > 50ms (ultra-subtle, no distortion)
+        if (absDrift > 0.05) {
+            const correction = drift > 0 ? 0.999 : 1.001;
             audio.playbackRate = (data.playbackRate || 1) * correction;
         } else {
             audio.playbackRate = data.playbackRate || 1;
         }
 
-        // Play/pause sync
+        // Play/pause sync (avoid redundant calls if buffering)
         if (data.isPlaying && audio.paused) {
-            audio.play().catch(() => { });
+            if (audio.readyState >= 2) {
+                console.log('[SyncEngine] Syncing: Resumed playback');
+                audio.play().catch(e => console.warn('[SyncEngine] Play blocked:', e));
+            } else {
+                // Still buffering — play as soon as enough data is available
+                console.log('[SyncEngine] Buffering, will play on canplay event');
+                const onCanPlay = () => {
+                    audio.removeEventListener('canplay', onCanPlay);
+                    audio.play().catch(e => console.warn('[SyncEngine] Play after canplay blocked:', e));
+                };
+                audio.addEventListener('canplay', onCanPlay);
+            }
         } else if (!data.isPlaying && !audio.paused) {
+            console.log('[SyncEngine] Syncing: Paused playback');
             audio.pause();
         }
     }

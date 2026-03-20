@@ -5,16 +5,26 @@ import DJPads from './dj/DJPads';
 import { 
     Mic, Square, Play, Pause, Save, Share2, 
     Download, Trash2, Clock, Activity, AlertCircle,
-    CheckCircle2
+    CheckCircle2, X, Layers
 } from 'lucide-react';
 import { DJEngine } from '../lib/djEngine';
 import { precalculateAllSamples } from '../lib/djSamples';
 
-export default function DJConsole({ audioContext }) {
+export default function DJConsole({ audioContext, roomName }) {
     const engineRef = useRef(null);
     const [isReady, setIsReady] = useState(false);
     // Mobile tab state: 'A' | 'mixer' | 'B'
     const [mobileTab, setMobileTab] = useState('A');
+    const [showPads, setShowPads] = useState(false);
+    const [isPortrait, setIsPortrait] = useState(window.innerHeight > window.innerWidth);
+
+    useEffect(() => {
+        const handleResize = () => {
+            setIsPortrait(window.innerHeight > window.innerWidth);
+        };
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Global Mixer State — crossfader 0.5 = center
     const [mixerState, setMixerState] = useState({
@@ -23,6 +33,8 @@ export default function DJConsole({ audioContext }) {
         deckA: { fader: 0.8, vu: 0, eq: { hi: 0, mid: 0, low: 0, gain: 0 } },
         deckB: { fader: 0.8, vu: 0, eq: { hi: 0, mid: 0, low: 0, gain: 0 } },
     });
+    const mixerStateRef = useRef(mixerState);
+    useEffect(() => { mixerStateRef.current = mixerState; }, [mixerState]);
 
     // Deck States
     const defaultDeck = {
@@ -60,37 +72,56 @@ export default function DJConsole({ audioContext }) {
     const toggleDeckAExpand = useCallback((val) => setDeckAExpanded(val), []);
     const toggleDeckBExpand = useCallback((val) => setDeckBExpanded(val), []);
 
-    // Initialize DJ Engine once AudioContext exists
+    // Initialize DJ Engine helper
+    const initEngine = useCallback(async (providedCtx) => {
+        if (engineRef.current) return engineRef.current;
+        
+        const ctx = providedCtx || audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        if (ctx.state === 'suspended') {
+            await ctx.resume();
+        }
+
+        const engine = new DJEngine(ctx);
+        const initialMixer = mixerStateRef.current;
+        
+        // Sync initial state from React to Audio Engine
+        engine.setCrossfader(initialMixer.crossfader, initialMixer.curve);
+        engine.decks.A.faderGain.gain.value = initialMixer.deckA.fader;
+        engine.decks.B.faderGain.gain.value = initialMixer.deckB.fader;
+        
+        // Apply initial EQs
+        ['hi', 'mid', 'low', 'gain'].forEach(band => {
+            engine.setEQ('A', band, initialMixer.deckA.eq[band]);
+            engine.setEQ('B', band, initialMixer.deckB.eq[band]);
+        });
+
+        engineRef.current = engine;
+        setIsReady(true);
+        
+        // Background pre-calculation of samples
+        precalculateAllSamples(ctx).then(() => {
+            console.log('[DJConsole] Background samples ready');
+        });
+
+        return engine;
+    }, [audioContext]);
+
+    // Initialize DJ Engine automatically if AudioContext exists
     useEffect(() => {
-        if (!audioContext || engineRef.current) return;
+        if (audioContext && !engineRef.current) {
+            initEngine(audioContext);
+        }
+    }, [audioContext, initEngine]);
 
-        const init = async () => {
-            const engine = new DJEngine(audioContext);
-            
-            // Sync initial state from React to Audio Engine
-            engine.setCrossfader(mixerState.crossfader, mixerState.curve);
-            engine.decks.A.faderGain.gain.value = mixerState.deckA.fader;
-            engine.decks.B.faderGain.gain.value = mixerState.deckB.fader;
-            
-            // Apply initial EQs
-            ['hi', 'mid', 'low', 'gain'].forEach(band => {
-                engine.setEQ('A', band, mixerState.deckA.eq[band]);
-                engine.setEQ('B', band, mixerState.deckB.eq[band]);
-            });
-
-            engineRef.current = engine;
-            await precalculateAllSamples(audioContext);
-            setIsReady(true);
-        };
-        init();
-
+    // Dedicated cleanup for unmounting
+    useEffect(() => {
         return () => {
             if (engineRef.current) {
                 engineRef.current.stop('A');
                 engineRef.current.stop('B');
             }
         };
-    }, [audioContext]);
+    }, []);
 
     // VU Meter + Playhead Animation Loop
     useEffect(() => {
@@ -313,11 +344,16 @@ export default function DJConsole({ audioContext }) {
     }, [isReady]);
 
     const handleFileLoad = async (deckId, file) => {
-        if (!engineRef.current || !isReady) return;
+        let eng = engineRef.current;
+        if (!eng) {
+            eng = await initEngine();
+        }
+        if (!eng) return;
+
         const arrayBuf = await file.arrayBuffer();
-        await engineRef.current.loadTrack(deckId, arrayBuf);
+        await eng.loadTrack(deckId, arrayBuf);
         
-        const engineNode = engineRef.current.decks[deckId];
+        const engineNode = eng.decks[deckId];
         const setter = deckId === 'A' ? setDeckA : setDeckB;
 
         setter(prev => ({ 
@@ -330,16 +366,7 @@ export default function DJConsole({ audioContext }) {
         }));
     };
 
-    if (!isReady) {
-        return (
-            <div className="flex p-12 justify-center items-center h-full w-full bg-[#050E1A]">
-                <div className="animate-pulse text-[#F2C21A] font-bold text-center">
-                    <div>INITIALIZING DJ ENGINE...</div>
-                    <div className="text-xs text-gray-400 mt-2">Checking AudioContext & Baking Samples</div>
-                </div>
-            </div>
-        );
-    }
+    // Loading screen removed for instant load experience
 
     return (
         <div className="flex flex-col h-full w-full p-4 text-[#E8F4FD] rounded-2xl overflow-hidden relative"
@@ -376,7 +403,10 @@ export default function DJConsole({ audioContext }) {
 
             {/* Header */}
             <div className={`flex flex-wrap justify-between items-center gap-3 mb-3 bg-white/5 px-4 py-2.5 rounded-xl border border-white/10 ${recordingState.isRecording ? 'rounded-t-none' : ''}`}>
-                <div className="font-black italic tracking-widest text-[#F2C21A] text-lg sm:text-xl">DJ<span className="text-white">MODE</span></div>
+                <div className="font-black italic tracking-widest text-[#F2C21A] text-lg sm:text-xl">
+                    DJ<span className="text-white">MODE</span>
+                    <span className="text-white/40 text-sm ml-2 font-normal not-italic tracking-normal">with {roomName || 'My Set'}</span>
+                </div>
                 <div className="flex flex-wrap items-center gap-2 sm:gap-4 font-mono text-[10px] sm:text-sm">
                     <button 
                         onClick={() => !recordingState.isRecording ? startRecording() : setShowRecordingPanel(!showRecordingPanel)}
@@ -391,8 +421,14 @@ export default function DJConsole({ audioContext }) {
                         TAP
                     </button>
                     <div className="bg-black/40 px-3 py-1 sm:py-1.5 rounded-lg border border-white/5">
-                        <span className="text-white/30 hidden sm:inline">MASTER </span>BPM: <span className="text-[#00FF88] font-black drop-shadow-[0_0_8px_#00FF88]">{engineRef.current.sync.masterBPM.toFixed(1)}</span>
+                        <span className="text-white/30 hidden sm:inline">MASTER </span>BPM: <span className="text-[#00FF88] font-black drop-shadow-[0_0_8px_#00FF88]">{engineRef.current?.sync?.masterBPM.toFixed(1) || '128.0'}</span>
                     </div>
+                    <button
+                        onClick={() => setShowPads(true)}
+                        className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all font-black bg-[#F2C21A]/10 text-[#F2C21A] hover:bg-[#F2C21A]/20 border border-[#F2C21A]/20 shadow-[0_0_15px_rgba(242,194,26,0.1)]`}>
+                        <Layers size={14} />
+                        <span>PADS</span>
+                    </button>
                 </div>
             </div>
 
@@ -420,7 +456,7 @@ export default function DJConsole({ audioContext }) {
                     <DJDeck
                         label="A"
                         deckState={deckA}
-                        engineDeck={engineRef.current.decks.A}
+                        engineDeck={engineRef.current?.decks?.A}
                         onControlChange={(ctrl, val, extra) => handleDeckControl('A', ctrl, val, extra)}
                         onLoadFile={(file) => handleFileLoad('A', file)}
                         expanded={deckAExpanded}
@@ -444,7 +480,7 @@ export default function DJConsole({ audioContext }) {
                     <DJDeck
                         label="B"
                         deckState={deckB}
-                        engineDeck={engineRef.current.decks.B}
+                        engineDeck={engineRef.current?.decks?.B}
                         onControlChange={(ctrl, val, extra) => handleDeckControl('B', ctrl, val, extra)}
                         onLoadFile={(file) => handleFileLoad('B', file)}
                         expanded={deckBExpanded}
@@ -454,8 +490,48 @@ export default function DJConsole({ audioContext }) {
                 </div>
             </div>
 
-            {/* Bottom Pad Grid */}
-            <DJPads audioContext={audioContext} destination={engineRef.current?.masterGain || audioContext?.destination} />
+            {/* Bottom Pad Grid - Integrated for desktop, or overlay for mobile/tablet */}
+            <div className={`hidden lg:block mt-auto`}>
+                 <DJPads 
+                    audioContext={engineRef.current?.ctx || audioContext} 
+                    destination={engineRef.current?.masterGain || audioContext?.destination} 
+                />
+            </div>
+
+            {/* Performance Pads Overlay */}
+            {showPads && (
+                <div className="fixed inset-0 z-[110] backdrop-blur-3xl bg-black/60 flex flex-col animate-in fade-in zoom-in duration-300">
+                    <div className="flex justify-between items-center p-6 border-b border-white/5">
+                         <div className="font-black italic tracking-widest text-[#F2C21A] text-xl">PERFORMANCE<span className="text-white">PADS</span></div>
+                         <button 
+                            onClick={() => setShowPads(false)}
+                            className="p-3 bg-white/5 hover:bg-white/10 rounded-full transition-all text-white/50 hover:text-white"
+                         >
+                            <X size={24} />
+                         </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto p-4 flex items-center justify-center">
+                        <div className="max-w-6xl w-full">
+                            <DJPads 
+                                audioContext={engineRef.current?.ctx || audioContext} 
+                                destination={engineRef.current?.masterGain || audioContext?.destination} 
+                            />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Landscape Lockdown Overlay */}
+            {isPortrait && (navigator.userAgent.includes('Mobile') || navigator.userAgent.includes('iPad')) && (
+                <div className="fixed inset-0 z-[200] bg-[#050E1A] flex flex-col items-center justify-center text-center p-8">
+                    <div className="w-24 h-24 mb-6 relative">
+                         <div className="absolute inset-0 border-4 border-[#F2C21A]/30 rounded-2xl rotate-90 animate-pulse" />
+                         <div className="absolute inset-4 border-2 border-[#F2C21A] rounded-lg animate-bounce" />
+                    </div>
+                    <h2 className="text-2xl font-black italic mb-2 tracking-widest">ROTATE DEVICE</h2>
+                    <p className="text-white/40 text-sm max-w-[280px]">DJ Mode requires landscape orientation for a premium mixing experience.</p>
+                </div>
+            )}
 
             {/* Mix Recording Panel (Additive Layer) */}
             {showRecordingPanel && (

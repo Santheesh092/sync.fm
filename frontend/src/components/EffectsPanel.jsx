@@ -17,7 +17,7 @@ export default function EffectsPanel({ audioNodes, onInitAudio }) {
         // Use a small timeout to allow state/refs to update if we just initialized them
         setTimeout(() => {
             if (audioNodes) {
-                applyEffect(null, effectId, audioNodes);
+                applyEffect(audioNodes.ctx || null, effectId, audioNodes);
             }
         }, 50);
     };

@@ -1,6 +1,7 @@
+/* eslint-disable no-unused-vars */
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Radio, Headphones, ArrowRight, Play, Zap, Smartphone, Sliders, Music, Lock, Globe } from 'lucide-react';
+import { Radio, Headphones, ArrowRight, Play, Zap, Smartphone, Sliders, Music, Lock, Globe, Mic, Sparkles, Download, Check, Volume2 } from 'lucide-react';
 
 const FEATURES = [
     { icon: <Zap size={22} />, title: 'Ultra Low Latency', desc: '<50ms sync across all devices', color: 'text-yellow-400' },
@@ -37,6 +38,36 @@ export default function Home() {
         if (joinCode.trim()) navigate(`/join/${joinCode.trim().toUpperCase()}`);
     };
 
+    const [isGenerating, setIsGenerating] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [isDone, setIsDone] = useState(false);
+    const [selections, setSelections] = useState({
+        lang: 'English',
+        genres: ['Love'],
+        mood: 'Romantic',
+        tempo: 'Medium',
+        vocals: [],
+        elements: ['Modern Beats']
+    });
+
+    const handleCreateSong = () => {
+        setIsGenerating(true);
+        setIsDone(false);
+        setProgress(0);
+
+        const interval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 100) {
+                    clearInterval(interval);
+                    setIsGenerating(false);
+                    setIsDone(true);
+                    return 100;
+                }
+                return prev + 2;
+            });
+        }, 50);
+    };
+
     return (
         <div className="min-h-screen relative overflow-x-hidden">
             {/* Background radial glows */}
@@ -63,14 +94,14 @@ export default function Home() {
                         style={{ background: 'rgba(242,194,26,0.15)', border: '1px solid rgba(242,194,26,0.3)' }}>
                         <Radio size={18} color="#F2C21A" />
                     </div>
-                    <span className="text-xl font-bold tracking-tight">Nearby<span style={{ color: '#F2C21A' }}>.fm</span></span>
+                    <span className="text-xl font-bold tracking-tight">Vibez<span style={{ color: '#F2C21A' }}>.fm</span></span>
                 </div>
 
-                <div className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: '#6b8fa8' }}>
+                {/* <div className="hidden md:flex items-center gap-6 text-sm font-medium" style={{ color: '#6b8fa8' }}>
                     <button onClick={() => navigate('/')} className="hover:text-white transition-colors">Home</button>
                     <button onClick={() => navigate('/create-room')} className="hover:text-white transition-colors">Create Room</button>
                     <button onClick={() => navigate('/join-room')} className="hover:text-white transition-colors">Join Room</button>
-                </div>
+                </div> */}
 
                 <button onClick={() => navigate('/create-room')} className="btn-accent text-sm px-4 py-2">
                     Get Started →
@@ -148,9 +179,9 @@ export default function Home() {
                     <h2 className="text-3xl font-bold text-center mb-3">Built for Every Venue</h2>
                     <p className="text-center mb-10" style={{ color: '#6b8fa8' }}>From living rooms to stadiums</p>
 
-                    <div className="flex gap-4 overflow-x-auto pb-4" style={{ scrollbarWidth: 'thin' }}>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                         {USE_CASES.map((c, i) => (
-                            <div key={i} className="glass-card p-6 flex-shrink-0 w-52">
+                            <div key={i} className="glass-card p-6">
                                 <div className="text-4xl mb-4">{c.emoji}</div>
                                 <h3 className="font-bold mb-2">{c.title}</h3>
                                 <p className="text-sm" style={{ color: '#6b8fa8' }}>{c.desc}</p>
@@ -159,6 +190,8 @@ export default function Home() {
                     </div>
                 </div>
             </section>
+
+            
 
             {/* ── CTA ── */}
             <section className="relative z-10 pb-20 px-6">
