@@ -11,14 +11,16 @@ services:
       - key: NODE_ENV
         value: production
 
-  - type: web
+  - type: static
     name: sync-fm-frontend
-    runtime: node
+    runtime: static
     rootDir: frontend
     buildCommand: npm install && npm run build
-    startCommand: npm run preview
+    staticPublishPath: dist
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=31536000, immutable
     envVars:
-      - key: NODE_VERSION
-        value: 22.22.0
       - key: VITE_API_URL
-        value: https://your-backend-url.onrender.com
+        value: https://your-backend-url.onrender.com/api
