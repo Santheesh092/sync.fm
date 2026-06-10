@@ -8,11 +8,11 @@ const SERVER_URL = '';
 
 const ROOM_TYPES = [
     { id: 'party', emoji: '🎉', label: 'Party Mode', path: 'party', desc: 'Music sync for gatherings' },
-    { id: 'cafe', emoji: '☕', label: 'Café / Restaurant', path: 'cafe', desc: 'Ambient scheduled playlists' },
-    { id: 'temple', emoji: '🛕', label: 'Temple Broadcast', path: 'temple', desc: 'Prayer & bhajan streaming' },
-    { id: 'announcement', emoji: '📢', label: 'Public Announcement', path: 'announcement', desc: 'Live mic broadcasting' },
-    { id: 'event', emoji: '🎵', label: 'Event Sync', path: 'event', desc: 'Festival / silent disco' },
-    { id: 'safety', emoji: '🚨', label: 'Public Safety', path: 'safety', desc: 'Emergency alert broadcasts' },
+    // { id: 'cafe', emoji: '☕', label: 'Café / Restaurant', path: 'cafe', desc: 'Ambient scheduled playlists' },
+    // { id: 'temple', emoji: '🛕', label: 'Temple Broadcast', path: 'temple', desc: 'Prayer & bhajan streaming' },
+    // { id: 'announcement', emoji: '📢', label: 'Public Announcement', path: 'announcement', desc: 'Live mic broadcasting' },
+    // { id: 'event', emoji: '🎵', label: 'Event Sync', path: 'event', desc: 'Festival / silent disco' },
+    // { id: 'safety', emoji: '🚨', label: 'Public Safety', path: 'safety', desc: 'Emergency alert broadcasts' },
     { id: 'dj', emoji: '🎧', label: 'DJ Mode', path: 'dj', desc: 'Professional DJ console & mixer' },
 ];
 
@@ -236,14 +236,14 @@ export default function CreateRoom() {
                                             <button key={q.id} onClick={() => setQuality(q.id)}
                                                 className={`relative overflow-hidden py-3 px-2 rounded-xl text-xs font-bold border transition-all duration-300 text-center group
                                     ${quality === q.id
-                                                    ? 'border-[#F2C21A] bg-[#F2C21A]/10 text-[#F2C21A] shadow-[0_0_15px_rgba(242,194,26,0.2)]'
-                                                    : 'border-white/5 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'}`}>
-                                                
+                                                        ? 'border-[#F2C21A] bg-[#F2C21A]/10 text-[#F2C21A] shadow-[0_0_15px_rgba(242,194,26,0.2)]'
+                                                        : 'border-white/5 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'}`}>
+
                                                 {/* Active indicator glow */}
                                                 {quality === q.id && (
                                                     <div className="absolute inset-0 bg-gradient-to-t from-[#F2C21A]/20 to-transparent opacity-50" />
                                                 )}
-                                                
+
                                                 <div className="relative z-10">
                                                     {q.label}
                                                     <div className={`font-normal mt-1 transition-colors ${quality === q.id ? 'text-[#F2C21A]/80' : 'opacity-50'}`}>{q.desc}</div>

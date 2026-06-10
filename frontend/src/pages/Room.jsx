@@ -447,7 +447,7 @@ export default function Room() {
         limiter.connect(masterGain);
         masterGain.connect(analyser);
         analyser.connect(ctx.destination);
-        
+
         // Setup WebRTC stream only for desktop hosts
         if (!isMobile && webrtcDest) {
             // Also route audio to WebRTC destination so listeners hear EXACTLY what we output
@@ -458,9 +458,9 @@ export default function Room() {
                 webrtcRef.current.updateStream(webrtcDest.stream);
                 // Re-broadcast the stream offer to all connected devices natively
                 if (socketRef.current) {
-                devices.forEach(d => {
-                    webrtcRef.current.createOffer(d.id, webrtcDest.stream);
-                });
+                    devices.forEach(d => {
+                        webrtcRef.current.createOffer(d.id, webrtcDest.stream);
+                    });
                 }
             }
         }
@@ -520,7 +520,7 @@ export default function Room() {
         const file = e.target.files[0];
         if (!file) return;
         initAudioAPI();
-        
+
         // Show temporary loading entry in queue (optional visual feedback)
         const tempEntry = { url: '', title: `Uploading ${file.name}...`, artist: 'Please wait' };
         setQueue(prev => [...prev, tempEntry]);
@@ -528,7 +528,7 @@ export default function Room() {
         try {
             const formData = new FormData();
             formData.append('file', file);
-            
+
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
@@ -538,7 +538,7 @@ export default function Room() {
                 throw new Error(errorData.error || 'Upload failed');
             }
             const data = await res.json();
-            
+
             const newEntry = { url: data.url, title: data.title, artist: 'Uploaded File' };
             setQueue(prev => {
                 const newQ = prev.filter(t => t.url !== '');
@@ -672,45 +672,45 @@ export default function Room() {
             <audio ref={audioRef} crossOrigin="anonymous" preload="auto" />
 
             {/* ── Top Nav ── */}
-          {/* Confirmation modal for DJ room */}
-          <ConfirmModal
-            isOpen={isConfirmOpen}
-            title={confirmTitle}
-            description={confirmDesc}
-            onCancel={() => setIsConfirmOpen(false)}
-            onConfirm={() => { setIsConfirmOpen(false); navigate('/'); }}
-          />
+            {/* Confirmation modal for DJ room */}
+            <ConfirmModal
+                isOpen={isConfirmOpen}
+                title={confirmTitle}
+                description={confirmDesc}
+                onCancel={() => setIsConfirmOpen(false)}
+                onConfirm={() => { setIsConfirmOpen(false); navigate('/'); }}
+            />
             <nav className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(242,194,26,0.1)' }}>
                 <div className="flex items-center gap-3">
                     <button
                         onClick={() => {
-                          const confirmTypes = ['dj', 'party', 'cafe', 'temple', 'announcement', 'safety', 'event'];
-                          if (roomInfo && confirmTypes.includes(roomInfo.type)) {
-                            // Set a generic or type‑specific message
-                            const titleMap = {
-                              dj: 'Leave DJ Room',
-                              party: 'Leave Party Mode',
-                              cafe: 'Leave Café/Restaurant',
-                              temple: 'Leave Temple Broadcast',
-                              announcement: 'Leave Public Announcement',
-                              safety: 'Leave Public Safety',
-                              event: 'Leave Event Sync',
-                            };
-                            const descMap = {
-                              dj: 'Are you sure you want to leave this DJ room and return to the home page?',
-                              party: 'Leave this Party Mode room?',
-                              cafe: 'Leave this Café/Restaurant room?',
-                              temple: 'Leave this Temple Broadcast?',
-                              announcement: 'Leave this Public Announcement room?',
-                              safety: 'Leave this Public Safety room?',
-                              event: 'Leave this Event Sync room?',
-                            };
-                            setConfirmTitle(titleMap[roomInfo.type] || 'Leave Room');
-                            setConfirmDesc(descMap[roomInfo.type] || 'Are you sure you want to leave this room?');
-                            setIsConfirmOpen(true);
-                          } else {
-                            window.history.length > 1 ? navigate(-1) : navigate('/');
-                          }
+                            const confirmTypes = ['dj', 'party', 'cafe', 'temple', 'announcement', 'safety', 'event'];
+                            if (roomInfo && confirmTypes.includes(roomInfo.type)) {
+                                // Set a generic or type‑specific message
+                                const titleMap = {
+                                    dj: 'Leave DJ Room',
+                                    party: 'Leave Party Mode',
+                                    cafe: 'Leave Café/Restaurant',
+                                    temple: 'Leave Temple Broadcast',
+                                    announcement: 'Leave Public Announcement',
+                                    safety: 'Leave Public Safety',
+                                    event: 'Leave Event Sync',
+                                };
+                                const descMap = {
+                                    dj: 'Are you sure you want to leave this DJ room and return to the home page?',
+                                    party: 'Leave this Party Mode room?',
+                                    cafe: 'Leave this Café/Restaurant room?',
+                                    temple: 'Leave this Temple Broadcast?',
+                                    announcement: 'Leave this Public Announcement room?',
+                                    safety: 'Leave this Public Safety room?',
+                                    event: 'Leave this Event Sync room?',
+                                };
+                                setConfirmTitle(titleMap[roomInfo.type] || 'Leave Room');
+                                setConfirmDesc(descMap[roomInfo.type] || 'Are you sure you want to leave this room?');
+                                setIsConfirmOpen(true);
+                            } else {
+                                window.history.length > 1 ? navigate(-1) : navigate('/');
+                            }
                         }}
                         className="p-0 flex items-center gap-1.5 text-sm bg-transparent border-none shadow-none hover:bg-transparent focus:outline-none"
                     >
@@ -718,7 +718,7 @@ export default function Room() {
                     </button>
                     <div className="flex items-center gap-2">
                         <Radio size={16} color="#F2C21A" />
-                        <span className="font-bold text-sm">Nearby<span style={{ color: '#F2C21A' }}>.fm</span></span>
+                        <span className="font-bold text-sm">Vibez<span style={{ color: '#F2C21A' }}>.fm</span></span>
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -1187,11 +1187,11 @@ export default function Room() {
                     </div>
                 </div>
             )}
-            
+
             {showAnalytics && (
-                <AnalyticsDashboard 
-                    devices={devices} 
-                    onClose={() => setShowAnalytics(false)} 
+                <AnalyticsDashboard
+                    devices={devices}
+                    onClose={() => setShowAnalytics(false)}
                 />
             )}
         </div>
