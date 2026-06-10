@@ -10,6 +10,7 @@ import EqualizerPanel from '../components/EqualizerPanel';
 import EffectsPanel from '../components/EffectsPanel';
 import EarModePanel from '../components/EarModePanel';
 import DimensionPanel from '../components/DimensionPanel';
+import SpatialPanel from '../components/SpatialPanel';
 
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
@@ -518,9 +519,9 @@ export default function Listener() {
                         />
                     </div>
 
-                    {/* Controls Tabs (EQ/FX/EAR/DIM) */}
-                    <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5">
-                        {['eq', 'effects', 'dimensions', 'ear'].map((tab) => (
+                    {/* Controls Tabs (EQ/FX/EAR/DIM/SPATIAL) */}
+                    <div className="flex gap-2 bg-black/40 p-1.5 rounded-2xl border border-white/5 overflow-x-auto no-scrollbar">
+                        {['eq', 'effects', 'dimensions', 'ear', 'spatial'].map((tab) => (
                             <button
                                 key={tab}
                                 onClick={() => setActiveTab(tab === activeTab ? null : tab)}
@@ -535,19 +536,20 @@ export default function Listener() {
                         ))}
                     </div>
 
-                    {/* Active Tab Panel */}
-                    <div className={`transition-all duration-300 ${activeTab ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none absolute'}`}>
-                        {activeTab === 'eq' && <EqualizerPanel filters={eqFilters.current} />}
-                        {activeTab === 'effects' && <EffectsPanel audioNodes={effectNodes.current} onInitAudio={() => {}} />}
-                        {activeTab === 'dimensions' && (
-                            <DimensionPanel 
-                                audioNodes={effectNodes.current} 
-                                trackUrl={audioRef.current?.src}
-                                trackTitle={trackInfo.title}
-                            />
-                        )}
-                        {activeTab === 'ear' && <EarModePanel filters={eqFilters.current} />}
-                    </div>
+                        {/* Active Tab Panel */}
+                        <div className={`transition-all duration-300 ${activeTab ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-4 scale-95 pointer-events-none absolute'}`}>
+                            {activeTab === 'eq' && <EqualizerPanel filters={eqFilters.current} />}
+                            {activeTab === 'effects' && <EffectsPanel audioNodes={effectNodes.current} onInitAudio={() => {}} />}
+                            {activeTab === 'dimensions' && (
+                                <DimensionPanel 
+                                    audioNodes={effectNodes.current} 
+                                    trackUrl={audioRef.current?.src}
+                                    trackTitle={trackInfo.title}
+                                />
+                            )}
+                            {activeTab === 'ear' && <EarModePanel filters={eqFilters.current} />}
+                            {activeTab === 'spatial' && <SpatialPanel audioNodes={effectNodes.current} onInitAudio={() => {}} />}
+                        </div>
 
                 </div>
             </main>

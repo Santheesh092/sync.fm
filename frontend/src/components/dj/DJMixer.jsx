@@ -34,7 +34,7 @@ function RotaryKnob({ label, type = 'mid', value, onChange }) {
     return (
         <div className="flex flex-col items-center gap-1 group">
             <div
-                className="relative w-10 h-10 rounded-full cursor-ns-resize select-none border-2 border-[#000] p-[2px]"
+                className="relative w-8 h-8 sm:w-10 sm:h-10 rounded-full cursor-ns-resize select-none border-[1.5px] sm:border-2 border-[#000] p-[2px]"
                 onPointerDown={handlePointerDown}
                 onPointerMove={handlePointerMove}
                 onPointerUp={handlePointerUp}
@@ -60,8 +60,8 @@ function RotaryKnob({ label, type = 'mid', value, onChange }) {
 function ChannelStrip({ label, eq, fader, vu, onEqChange, onFaderChange, expanded }) {
     const accentColor = label === 'A' ? '#00CFFF' : '#CC44FF';
     return (
-        <div className="flex flex-col items-center gap-3 flex-1 h-full min-h-[320px]">
-            <div className="text-[10px] font-black tracking-widest" style={{ color: accentColor }}>CH {label}</div>
+        <div className="flex flex-col items-center gap-1 sm:gap-3 flex-1 h-full min-h-[200px] sm:min-h-[320px]">
+            <div className="text-[9px] sm:text-[10px] font-black tracking-widest" style={{ color: accentColor }}>CH {label}</div>
 
             <RotaryKnob label="GAIN" type="gain" value={(eq.gain + 60) / 72}
                 onChange={v => onEqChange('gain', (v * 72) - 60)} />
@@ -77,7 +77,7 @@ function ChannelStrip({ label, eq, fader, vu, onEqChange, onFaderChange, expande
                     onChange={v => onEqChange('low', (v * 48) - 24)} />
             </div>
 
-            <div className={`flex gap-3 mt-auto w-full justify-center transition-all duration-500 ease-in-out ${expanded ? 'h-64' : 'h-28'}`}>
+            <div className={`flex gap-1 sm:gap-3 mt-auto w-full justify-center transition-all duration-500 ease-in-out ${expanded ? 'h-24 sm:h-64' : 'h-20 sm:h-28'}`}>
                 {/* Segmented VU Meter - Premium LED Look */}
                 <div className="flex flex-col-reverse gap-[2px] w-3 h-full justify-between items-center py-1 bg-black/60 rounded-full border border-white/5 relative overflow-hidden">
                     {/* Glassy Overlay for VU Meter */}
@@ -217,7 +217,7 @@ export default function DJMixer({ state, onMixerChange, deckAExpanded, deckBExpa
     const isAnyExpanded = deckAExpanded || deckBExpanded;
 
     return (
-        <div className={`flex flex-col p-5 gap-5 rounded-3xl border transition-all duration-500 ease-in-out ${isAnyExpanded ? 'w-[320px] h-full' : 'w-64 flex-shrink-0'}`}
+        <div className={`flex flex-col p-2 sm:p-5 gap-2 sm:gap-5 rounded-[1.5rem] sm:rounded-3xl border transition-all duration-500 ease-in-out h-full ${isAnyExpanded ? 'w-[160px] sm:w-[320px]' : 'w-[110px] sm:w-64 flex-shrink-0'}`}
             style={{ 
                 background: 'linear-gradient(135deg, #1a1a1a 0%, #0d0d0d 100%)', 
                 backdropFilter: 'blur(25px)',
@@ -226,7 +226,7 @@ export default function DJMixer({ state, onMixerChange, deckAExpanded, deckBExpa
             }}>
 
             {/* Channel Strips */}
-            <div className="flex gap-4 flex-1">
+            <div className="flex gap-1 sm:gap-4 flex-1">
                 <ChannelStrip
                     label="A"
                     eq={state.deckA.eq}

@@ -25,7 +25,7 @@ const QUALITY_OPTIONS = [
 
 export default function CreateRoom() {
     const navigate = useNavigate();
-    const [step, setStep] = useState(1); // 1=type, 2=settings, 3=launched
+    const [step, setStep] = useState(1); // 1=configure, 2=launched
     const [roomType, setRoomType] = useState('party');
     const [roomName, setRoomName] = useState('');
     const [maxDevices, setMaxDevices] = useState(0);
@@ -73,7 +73,7 @@ export default function CreateRoom() {
             const url = `${window.location.origin}/join/${data.roomId}`;
             setRoomId(data.roomId);
             setShareUrl(url);
-            setStep(3);
+            setStep(2);
         } catch (err) {
             console.error('[CreateRoom] Error:', err);
             alert(`Error: ${err.message}`);
@@ -120,51 +120,51 @@ export default function CreateRoom() {
             <div className="relative z-10 max-w-3xl mx-auto px-6 pb-20">
                 {/* Progress */}
                 <div className="flex items-center gap-3 mb-10 mt-4">
-                    {[1, 2, 3].map(s => (
+                    {[1, 2].map(s => (
                         <div key={s} className="flex items-center gap-3">
                             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-all
                 ${step >= s ? 'text-black' : 'text-gray-500 bg-white/5 border border-white/10'}`}
                                 style={step >= s ? { background: '#F2C21A' } : {}}>
                                 {s}
                             </div>
-                            {s < 3 && <div className={`h-px w-16 transition-all ${step > s ? 'bg-yellow-400' : 'bg-white/10'}`} />}
+                            {s < 2 && <div className={`h-px w-16 transition-all ${step > s ? 'bg-yellow-400' : 'bg-white/10'}`} />}
                         </div>
                     ))}
                     <span className="ml-2 text-sm" style={{ color: '#6b8fa8' }}>
-                        {step === 1 ? 'Choose Room Type' : step === 2 ? 'Configure Settings' : 'Room Launched!'}
+                        {step === 1 ? 'Configure Your Room' : 'Room Launched!'}
                     </span>
                 </div>
 
-                {/* ── Step 1: Room Type ── */}
+                {/* ── Step 1: Settings ── */}
                 {step === 1 && (
                     <div className="animate-slide-up">
-                        <h1 className="text-3xl font-bold mb-2">Choose Room Type</h1>
-                        <p className="mb-8" style={{ color: '#6b8fa8' }}>Select the mode that fits your event</p>
-
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-                            {ROOM_TYPES.map(t => (
-                                <button key={t.id} onClick={() => setRoomType(t.id)}
-                                    className={`room-type-card ${roomType === t.id ? 'selected' : ''}`}>
-                                    <div className="text-4xl mb-3">{t.emoji}</div>
-                                    <div className="font-bold text-sm mb-1">{t.label}</div>
-                                    <div className="text-xs" style={{ color: '#6b8fa8' }}>{t.desc}</div>
-                                </button>
-                            ))}
-                        </div>
-
-                        <button onClick={() => setStep(2)} className="btn-accent w-full py-4 flex items-center justify-center gap-2">
-                            Continue <ArrowRight size={18} />
-                        </button>
-                    </div>
-                )}
-
-                {/* ── Step 2: Settings ── */}
-                {step === 2 && (
-                    <div className="animate-slide-up">
-                        <h1 className="text-3xl font-bold mb-2">{selectedType?.emoji} {selectedType?.label}</h1>
-                        <p className="mb-8" style={{ color: '#6b8fa8' }}>Configure your room settings</p>
+                        <h1 className="text-3xl font-bold mb-2">Configure Room</h1>
+                        <p className="mb-8" style={{ color: '#6b8fa8' }}>Set up your live audio space</p>
 
                         <div className="glass-panel rounded-2xl p-6 space-y-6 mb-6">
+                            {/* Room Type Dropdown */}
+                            <div>
+                                <label className="block text-sm font-semibold mb-2">Room Type</label>
+                                <select
+                                    className="input-field appearance-none"
+                                    value={roomType}
+                                    onChange={e => setRoomType(e.target.value)}
+                                    style={{
+                                        backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%23F2C21A'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E")`,
+                                        backgroundRepeat: 'no-repeat',
+                                        backgroundPosition: 'right 16px center',
+                                        backgroundSize: '16px'
+                                    }}
+                                >
+                                    {ROOM_TYPES.map(t => (
+                                        <option key={t.id} value={t.id} style={{ background: '#0B1F33' }}>
+                                            {t.emoji} {t.label}
+                                        </option>
+                                    ))}
+                                </select>
+                                <p className="text-[10px] mt-1.5 opacity-60 ml-1">{selectedType?.desc}</p>
+                            </div>
+
                             {/* Room Name */}
                             <div>
                                 <label className="block text-sm font-semibold mb-2">Room Name</label>
@@ -207,40 +207,56 @@ export default function CreateRoom() {
                                 />
                             </div>
 
-                            {/* Listener Controls Toggle */}
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <div className="font-semibold text-sm">Allow Listener Controls</div>
-                                    <div className="text-xs mt-0.5" style={{ color: '#6b8fa8' }}>Listeners can pause/seek</div>
+                            {/* Advanced Settings Container */}
+                            <div className="p-5 rounded-2xl bg-[#0B1F33]/50 border border-white/5 space-y-6">
+                                {/* Listener Controls Toggle */}
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-4">
+                                        <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center border border-white/10">
+                                            <Users size={18} color="#F2C21A" />
+                                        </div>
+                                        <div>
+                                            <div className="font-semibold text-sm text-white">Allow Listener Controls</div>
+                                            <div className="text-xs mt-0.5" style={{ color: '#6b8fa8' }}>Listeners can pause/seek</div>
+                                        </div>
+                                    </div>
+                                    <button onClick={() => setAllowControls(v => !v)}
+                                        className={`w-14 h-7 rounded-full transition-all duration-300 relative ${allowControls ? 'bg-[#F2C21A] shadow-[0_0_15px_rgba(242,194,26,0.4)]' : 'bg-white/10'}`}>
+                                        <div className={`w-5 h-5 rounded-full bg-white absolute top-1 transition-all duration-300 shadow-md ${allowControls ? 'left-8' : 'left-1'}`} />
+                                    </button>
                                 </div>
-                                <button onClick={() => setAllowControls(v => !v)}
-                                    className={`w-12 h-6 rounded-full transition-all relative ${allowControls ? 'bg-yellow-400' : 'bg-white/10'}`}>
-                                    <div className={`w-5 h-5 rounded-full bg-white absolute top-0.5 transition-all ${allowControls ? 'left-6' : 'left-0.5'}`} />
-                                </button>
-                            </div>
 
-                            {/* Audio Quality */}
-                            <div>
-                                <label className="block text-sm font-semibold mb-3 flex items-center gap-2">
-                                    <Volume2 size={14} /> Audio Quality
-                                </label>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {QUALITY_OPTIONS.map(q => (
-                                        <button key={q.id} onClick={() => setQuality(q.id)}
-                                            className={`py-3 px-2 rounded-xl text-xs font-bold border transition-all text-center
-                        ${quality === q.id
-                                                    ? 'border-yellow-400 bg-yellow-400/10 text-yellow-400'
-                                                    : 'border-white/10 bg-white/5 text-gray-400 hover:border-white/20'}`}>
-                                            {q.label}
-                                            <div className="font-normal mt-0.5 opacity-70">{q.desc}</div>
-                                        </button>
-                                    ))}
+                                {/* Audio Quality */}
+                                <div>
+                                    <label className="block text-sm font-semibold mb-3 flex items-center gap-2 text-white">
+                                        <Volume2 size={16} color="#F2C21A" /> Audio Quality
+                                    </label>
+                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                                        {QUALITY_OPTIONS.map(q => (
+                                            <button key={q.id} onClick={() => setQuality(q.id)}
+                                                className={`relative overflow-hidden py-3 px-2 rounded-xl text-xs font-bold border transition-all duration-300 text-center group
+                                    ${quality === q.id
+                                                    ? 'border-[#F2C21A] bg-[#F2C21A]/10 text-[#F2C21A] shadow-[0_0_15px_rgba(242,194,26,0.2)]'
+                                                    : 'border-white/5 bg-white/5 text-gray-400 hover:border-white/20 hover:bg-white/10'}`}>
+                                                
+                                                {/* Active indicator glow */}
+                                                {quality === q.id && (
+                                                    <div className="absolute inset-0 bg-gradient-to-t from-[#F2C21A]/20 to-transparent opacity-50" />
+                                                )}
+                                                
+                                                <div className="relative z-10">
+                                                    {q.label}
+                                                    <div className={`font-normal mt-1 transition-colors ${quality === q.id ? 'text-[#F2C21A]/80' : 'opacity-50'}`}>{q.desc}</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <div className="flex gap-3">
-                            <button onClick={() => setStep(1)} className="btn-ghost px-6 py-4">← Back</button>
+                            <button onClick={() => navigate('/')} className="btn-ghost px-6 py-4">Cancel</button>
                             <button onClick={handleLaunch} disabled={loading || !roomName.trim()}
                                 className="btn-accent flex-1 py-4 flex items-center justify-center gap-2 disabled:opacity-50">
                                 {loading ? (
@@ -253,8 +269,8 @@ export default function CreateRoom() {
                     </div>
                 )}
 
-                {/* ── Step 3: Launched ── */}
-                {step === 3 && roomId && (
+                {/* ── Step 2: Launched ── */}
+                {step === 2 && roomId && (
                     <div className="animate-slide-up text-center">
                         <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-6 animate-glow"
                             style={{ background: 'rgba(242,194,26,0.15)', border: '2px solid rgba(242,194,26,0.5)' }}>

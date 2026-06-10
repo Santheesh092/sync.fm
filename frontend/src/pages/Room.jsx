@@ -7,7 +7,7 @@ import { io } from 'socket.io-client';
 import {
     Radio, ArrowLeft, Upload, Link2, Music, Share2, Copy, Mic, MicOff,
     Volume2, VolumeX, Play, Pause, SkipBack, SkipForward, Square,
-    Shuffle, Repeat
+    Shuffle, Repeat, BarChart3
 } from 'lucide-react';
 
 import DevicePanel from '../components/DevicePanel';
@@ -15,7 +15,10 @@ import EqualizerPanel from '../components/EqualizerPanel';
 import EffectsPanel from '../components/EffectsPanel';
 import DimensionPanel from '../components/DimensionPanel';
 import EarModePanel from '../components/EarModePanel';
+import SpatialPanel from '../components/SpatialPanel';
 import DJConsole from '../components/DJConsole';
+import ConfirmModal from '../components/ConfirmModal';
+import AnalyticsDashboard from '../components/AnalyticsDashboard';
 import { createEQChain, applyEffect } from '../lib/effectUtils';
 import { SyncEngine } from '../lib/syncEngine';
 import { WebRTCManager } from '../lib/webrtc';
@@ -135,6 +138,7 @@ const BOTTOM_TABS = [
     { id: 'effects', label: 'Effects' },
     { id: 'dimensions', label: 'Dimensions' },
     { id: 'ear', label: 'Ear Mode' },
+    { id: 'spatial', label: 'Spatial' },
 ];
 
 export default function Room() {
@@ -220,6 +224,11 @@ export default function Room() {
     const [shareUrl, setShareUrl] = useState('');
     const [copied, setCopied] = useState(false);
     const [isMicEnabled, setIsMicEnabled] = useState(false);
+    const [showAnalytics, setShowAnalytics] = useState(false);
+    const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    // Title and description for the confirmation modal
+    const [confirmTitle, setConfirmTitle] = useState('');
+    const [confirmDesc, setConfirmDesc] = useState('');
     const micStreamRef = useRef(null);
     const micSourceRef = useRef(null);
 
@@ -663,10 +672,46 @@ export default function Room() {
             <audio ref={audioRef} crossOrigin="anonymous" preload="auto" />
 
             {/* ── Top Nav ── */}
+          {/* Confirmation modal for DJ room */}
+          <ConfirmModal
+            isOpen={isConfirmOpen}
+            title={confirmTitle}
+            description={confirmDesc}
+            onCancel={() => setIsConfirmOpen(false)}
+            onConfirm={() => { setIsConfirmOpen(false); navigate('/'); }}
+          />
             <nav className="flex items-center justify-between px-4 py-3 border-b" style={{ borderColor: 'rgba(242,194,26,0.1)' }}>
                 <div className="flex items-center gap-3">
                     <button
-                        onClick={() => window.history.length > 1 ? navigate(-1) : navigate('/')}
+                        onClick={() => {
+                          const confirmTypes = ['dj', 'party', 'cafe', 'temple', 'announcement', 'safety', 'event'];
+                          if (roomInfo && confirmTypes.includes(roomInfo.type)) {
+                            // Set a generic or type‑specific message
+                            const titleMap = {
+                              dj: 'Leave DJ Room',
+                              party: 'Leave Party Mode',
+                              cafe: 'Leave Café/Restaurant',
+                              temple: 'Leave Temple Broadcast',
+                              announcement: 'Leave Public Announcement',
+                              safety: 'Leave Public Safety',
+                              event: 'Leave Event Sync',
+                            };
+                            const descMap = {
+                              dj: 'Are you sure you want to leave this DJ room and return to the home page?',
+                              party: 'Leave this Party Mode room?',
+                              cafe: 'Leave this Café/Restaurant room?',
+                              temple: 'Leave this Temple Broadcast?',
+                              announcement: 'Leave this Public Announcement room?',
+                              safety: 'Leave this Public Safety room?',
+                              event: 'Leave this Event Sync room?',
+                            };
+                            setConfirmTitle(titleMap[roomInfo.type] || 'Leave Room');
+                            setConfirmDesc(descMap[roomInfo.type] || 'Are you sure you want to leave this room?');
+                            setIsConfirmOpen(true);
+                          } else {
+                            window.history.length > 1 ? navigate(-1) : navigate('/');
+                          }
+                        }}
                         className="p-0 flex items-center gap-1.5 text-sm bg-transparent border-none shadow-none hover:bg-transparent focus:outline-none"
                     >
                         <ArrowLeft size={14} />
@@ -681,6 +726,9 @@ export default function Room() {
                         style={{ background: 'rgba(242,194,26,0.1)', border: '1px solid rgba(242,194,26,0.2)', color: '#F2C21A' }}>
                         {roomId}
                     </div>
+                    <button onClick={() => setShowAnalytics(true)} className="btn-ghost px-3 py-2 flex items-center gap-1.5 text-xs text-yellow-400 hover:text-yellow-300 transition-colors">
+                        <BarChart3 size={14} /> Analytics
+                    </button>
                     <button onClick={handleCopyShare} className="btn-ghost px-3 py-2 flex items-center gap-1.5 text-xs">
                         {copied ? '✓' : <Copy size={12} />} {copied ? 'Copied' : 'Share'}
                     </button>
@@ -1103,6 +1151,9 @@ export default function Room() {
                                     <div style={{ display: bottomTab === 'ear' ? 'block' : 'none' }}>
                                         <EarModePanel filters={eqFilters.current} />
                                     </div>
+                                    <div style={{ display: bottomTab === 'spatial' ? 'block' : 'none' }}>
+                                        <SpatialPanel audioNodes={effectNodes.current} onInitAudio={initAudioAPI} />
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -1133,9 +1184,15 @@ export default function Room() {
                                 </div>
                             </div>
                         </div>
-
                     </div>
                 </div>
+            )}
+            
+            {showAnalytics && (
+                <AnalyticsDashboard 
+                    devices={devices} 
+                    onClose={() => setShowAnalytics(false)} 
+                />
             )}
         </div>
     );

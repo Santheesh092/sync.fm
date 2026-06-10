@@ -404,3 +404,118 @@ export function applyDimensionEffect(ctx, dimensionId, nodes) {
         }
     }, fadeTime * 1000);
 }
+
+// ─── Spatial Roles (Distributed Surround) ──────────────────────────────────
+export const SPATIAL_ROLES = [
+    { 
+        id: 'front_left', 
+        label: 'Front Left', 
+        emoji: '🔊', 
+        desc: 'Primary left channel' 
+    },
+    { 
+        id: 'front_right', 
+        label: 'Front Right', 
+        emoji: '🔊', 
+        desc: 'Primary right channel' 
+    },
+    { 
+        id: 'center', 
+        label: 'Center / Vocal', 
+        emoji: '🗣️', 
+        desc: 'Dialogue & center focus' 
+    },
+    { 
+        id: 'rear_left', 
+        label: 'Rear Left', 
+        emoji: '📡', 
+        desc: 'Surround left ambiance' 
+    },
+    { 
+        id: 'rear_right', 
+        label: 'Rear Right', 
+        emoji: '📡', 
+        desc: 'Surround right ambiance' 
+    },
+    { 
+        id: 'subwoofer', 
+        label: 'Subwoofer', 
+        emoji: '🌋', 
+        desc: 'LFE / Deep bass only' 
+    },
+];
+
+export function applySpatialRole(ctx, roleId, nodes) {
+    if (!nodes || !nodes.panner || !nodes.effectFilter || !nodes.gain) return;
+    
+    const { panner, effectFilter, gain, eqOutput, analyser } = nodes;
+    const now = ctx.currentTime;
+    const tc = 0.1;
+
+    console.log(`[effectUtils] Applying Spatial Role: ${roleId}`);
+
+    // Default Reset
+    panner.pan.setTargetAtTime(0, now, tc);
+    effectFilter.type = 'peaking';
+    effectFilter.gain.setTargetAtTime(0, now, tc);
+    gain.gain.setTargetAtTime(nodes.lastVolume || 1.0, now, tc);
+
+    // Re-route to ensure effectFilter is in the chain if needed
+    try {
+        eqOutput.disconnect();
+        // Standard chain: eqOutput -> effectFilter -> panner -> gain -> analyser
+        eqOutput.connect(effectFilter);
+        effectFilter.connect(panner);
+        panner.connect(gain);
+        gain.connect(analyser);
+    } catch (e) {
+        // Already connected or other error
+    }
+
+    switch (roleId) {
+        case 'front_left':
+            panner.pan.setTargetAtTime(-1, now, tc);
+            break;
+        case 'front_right':
+            panner.pan.setTargetAtTime(1, now, tc);
+            break;
+        case 'center':
+            panner.pan.setTargetAtTime(0, now, tc);
+            // Slight boost to mid-range for vocals
+            effectFilter.type = 'peaking';
+            effectFilter.frequency.setTargetAtTime(1000, now, tc);
+            effectFilter.gain.setTargetAtTime(3, now, tc);
+            break;
+        case 'rear_left':
+            panner.pan.setTargetAtTime(-1, now, tc);
+            // High-cut to simulate rear positioning
+            effectFilter.type = 'lowpass';
+            effectFilter.frequency.setTargetAtTime(5000, now, tc);
+            // Slightly lower volume for surround
+            gain.gain.setTargetAtTime((nodes.lastVolume || 1.0) * 0.8, now, tc);
+            break;
+        case 'rear_right':
+            panner.pan.setTargetAtTime(1, now, tc);
+            effectFilter.type = 'lowpass';
+            effectFilter.frequency.setTargetAtTime(5000, now, tc);
+            gain.gain.setTargetAtTime((nodes.lastVolume || 1.0) * 0.8, now, tc);
+            break;
+        case 'subwoofer':
+            panner.pan.setTargetAtTime(0, now, tc);
+            // Low-pass at 120Hz
+            effectFilter.type = 'lowpass';
+            effectFilter.frequency.setTargetAtTime(120, now, tc);
+            effectFilter.Q.setTargetAtTime(1.0, now, tc);
+            // Boost the sub-bass slightly
+            gain.gain.setTargetAtTime((nodes.lastVolume || 1.0) * 1.2, now, tc);
+            break;
+        case 'none':
+        default:
+            // Standard stereo bypass (or whatever defaults we want)
+            panner.pan.setTargetAtTime(0, now, tc);
+            effectFilter.type = 'peaking';
+            effectFilter.gain.setTargetAtTime(0, now, tc);
+            break;
+    }
+}
+

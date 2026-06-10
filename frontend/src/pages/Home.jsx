@@ -103,9 +103,9 @@ export default function Home() {
                     <button onClick={() => navigate('/join-room')} className="hover:text-white transition-colors">Join Room</button>
                 </div> */}
 
-                <button onClick={() => navigate('/create-room')} className="btn-accent text-sm px-4 py-2">
+                {/* <button onClick={() => navigate('/create-room')} className="btn-accent text-sm px-4 py-2">
                     Get Started →
-                </button>
+                </button> */}
             </nav>
 
             {/* ── Hero ── */}
@@ -191,7 +191,7 @@ export default function Home() {
                 </div>
             </section>
 
-            
+
 
             {/* ── CTA ── */}
             <section className="relative z-10 pb-20 px-6">
@@ -212,9 +212,9 @@ export default function Home() {
                 style={{ borderColor: 'rgba(242,194,26,0.1)', color: '#6b8fa8' }}>
                 <div className="flex items-center justify-center gap-2 mb-3">
                     <Radio size={16} color="#F2C21A" />
-                    <span className="font-bold text-white">Nearby<span style={{ color: '#F2C21A' }}>.fm</span></span>
+                    <span className="font-bold text-white">Vibez<span style={{ color: '#F2C21A' }}>.fm</span></span>
                 </div>
-                <p className="text-sm">© 2026 Nearby.fm — Global Audio Sync Platform</p>
+                <p className="text-sm">© 2026 Vibez.fm — Global Audio Sync Platform</p>
             </footer>
         </div>
     );

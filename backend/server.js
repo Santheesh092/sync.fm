@@ -492,7 +492,7 @@ const frontendDistPath = path.join(__dirname, '../frontend/dist');
 app.use(express.static(frontendDistPath));
 
 // Handle SPAs by returning index.html for any unknown routes
-app.get('*', (req, res) => {
+app.get('/*splat', (req, res) => {
     // If it's an API call that wasn't handled, return 404
     if (req.path.startsWith('/api')) {
         return res.status(404).json({ error: 'Not Found' });

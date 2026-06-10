@@ -13,8 +13,6 @@ import { precalculateAllSamples } from '../lib/djSamples';
 export default function DJConsole({ audioContext, roomName }) {
     const engineRef = useRef(null);
     const [isReady, setIsReady] = useState(false);
-    // Mobile tab state: 'A' | 'mixer' | 'B'
-    const [mobileTab, setMobileTab] = useState('A');
     const [showPads, setShowPads] = useState(false);
     const [isPortrait, setIsPortrait] = useState(window.innerHeight > window.innerWidth);
 
@@ -369,7 +367,7 @@ export default function DJConsole({ audioContext, roomName }) {
     // Loading screen removed for instant load experience
 
     return (
-        <div className="flex flex-col h-full w-full p-4 text-[#E8F4FD] rounded-2xl overflow-hidden relative"
+        <div className="flex flex-col h-full w-full p-2 sm:p-4 text-[#E8F4FD] rounded-2xl overflow-hidden relative"
              style={{ 
                 background: 'var(--brushed-metal)',
                 boxShadow: 'inset 0 0 100px rgba(0,0,0,0.8)'
@@ -402,8 +400,8 @@ export default function DJConsole({ audioContext, roomName }) {
             )}
 
             {/* Header */}
-            <div className={`flex flex-wrap justify-between items-center gap-3 mb-3 bg-white/5 px-4 py-2.5 rounded-xl border border-white/10 ${recordingState.isRecording ? 'rounded-t-none' : ''}`}>
-                <div className="font-black italic tracking-widest text-[#F2C21A] text-lg sm:text-xl">
+            <div className={`flex flex-wrap justify-between items-center gap-1 sm:gap-3 mb-1 sm:mb-3 bg-white/5 px-2 sm:px-4 py-1 sm:py-2.5 rounded-xl border border-white/10 ${recordingState.isRecording ? 'rounded-t-none' : ''}`}>
+                <div className="font-black italic tracking-widest text-[#F2C21A] text-base sm:text-xl">
                     DJ<span className="text-white">MODE</span>
                     <span className="text-white/40 text-sm ml-2 font-normal not-italic tracking-normal">with {roomName || 'My Set'}</span>
                 </div>
@@ -412,8 +410,8 @@ export default function DJConsole({ audioContext, roomName }) {
                         onClick={() => !recordingState.isRecording ? startRecording() : setShowRecordingPanel(!showRecordingPanel)}
                         className={`flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg transition-all font-black ${recordingState.isRecording ? 'bg-red-500 text-white animate-pulse shadow-[0_0_15px_rgba(239,68,68,0.4)]' : 'bg-white/5 text-white/50 hover:bg-white/10 border border-white/5'}`}>
                         <Mic size={14} className={recordingState.isRecording ? 'animate-bounce' : ''} />
-                        <span className="hidden xs:inline">{recordingState.isRecording ? 'LIVE RECORDING' : 'RECORD MIX'}</span>
-                        <span className="xs:hidden">{recordingState.isRecording ? 'REC' : 'MIX'}</span>
+                        <span className="hidden sm:inline">{recordingState.isRecording ? 'LIVE RECORDING' : 'RECORD MIX'}</span>
+                        <span className="sm:hidden">{recordingState.isRecording ? 'REC' : 'MIX'}</span>
                     </button>
                     <button
                         className="bg-red-500/20 text-red-400 px-3 py-1 sm:py-1.5 rounded-lg border border-red-500/30 hover:bg-red-500/30 transition-all font-black active:scale-95"
@@ -432,27 +430,12 @@ export default function DJConsole({ audioContext, roomName }) {
                 </div>
             </div>
 
-            {/* Mobile Tab Bar (< 640px) */}
-            <div className="flex sm:hidden gap-1 mb-3 bg-black/30 p-1 rounded-lg">
-                {['A', 'mixer', 'B'].map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setMobileTab(tab)}
-                        className={`flex-1 py-2 text-xs font-black rounded-md transition-all ${mobileTab === tab
-                            ? tab === 'A' ? 'bg-[#00CFFF]/20 text-[#00CFFF] border border-[#00CFFF]/40'
-                            : tab === 'B' ? 'bg-[#CC44FF]/20 text-[#CC44FF] border border-[#CC44FF]/40'
-                            : 'bg-[#F2C21A]/20 text-[#F2C21A] border border-[#F2C21A]/40'
-                            : 'text-white/30 hover:text-white/60'}`}>
-                        {tab === 'mixer' ? 'MIXER' : `DECK ${tab}`}
-                    </button>
-                ))}
-            </div>
 
             {/* Main DJ Layout */}
-            <div className="flex flex-col sm:flex-row gap-3 flex-1 min-h-0">
+            <div className="flex flex-row gap-2 sm:gap-3 flex-1 min-h-0">
 
                 {/* Deck A */}
-                <div className={`flex-1 min-w-0 ${mobileTab !== 'A' ? 'hidden sm:block' : ''}`}>
+                <div className="flex-1 min-w-0">
                     <DJDeck
                         label="A"
                         deckState={deckA}
@@ -466,7 +449,7 @@ export default function DJConsole({ audioContext, roomName }) {
                 </div>
 
                 {/* Mixer Center */}
-                <div className={`flex-shrink-0 flex justify-center w-full sm:w-auto ${mobileTab !== 'mixer' ? 'hidden sm:flex' : ''}`}>
+                <div className="flex-shrink-0 flex justify-center w-auto max-w-[120px] sm:max-w-none">
                     <DJMixer
                         state={mixerState}
                         onMixerChange={handleMixerChange}
@@ -476,7 +459,7 @@ export default function DJConsole({ audioContext, roomName }) {
                 </div>
 
                 {/* Deck B */}
-                <div className={`flex-1 min-w-0 ${mobileTab !== 'B' ? 'hidden sm:block' : ''}`}>
+                <div className="flex-1 min-w-0">
                     <DJDeck
                         label="B"
                         deckState={deckB}

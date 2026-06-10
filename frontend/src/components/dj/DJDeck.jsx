@@ -61,9 +61,8 @@ function HotCuePad({ index, cueTime, onSet, onJump, onClear, deckLabel }) {
 
     return (
         <button
-            className="relative flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 select-none overflow-hidden"
+            className="relative flex flex-col items-center justify-center rounded-xl transition-all active:scale-95 select-none overflow-hidden min-h-[32px] sm:min-h-[64px]"
             style={{
-                minHeight: '64px',
                 background: isSet ? `${color}15` : 'rgba(0,0,0,0.4)',
                 border: `1.5px solid ${isSet ? color : 'rgba(255,255,255,0.05)'}`,
                 boxShadow: isSet ? `0 0 20px ${color}40, inset 0 0 10px ${color}20` : 'inset 0 2px 5px rgba(0,0,0,0.3)',
@@ -79,13 +78,13 @@ function HotCuePad({ index, cueTime, onSet, onJump, onClear, deckLabel }) {
             <div className="absolute inset-0 pointer-events-none" style={{ background: 'var(--glossy-overlay)', opacity: 0.3 }} />
 
             {/* Pad number */}
-            <span className="text-base font-black leading-none z-10"
+            <span className="text-xs sm:text-base font-black leading-none z-10"
                 style={{ color: isSet ? color : 'rgba(255,255,255,0.1)', textShadow: isSet ? `0 0 10px ${color}` : 'none' }}>
                 {index + 1}
             </span>
 
             {/* Cue label / timestamp */}
-            <span className="text-[8px] font-bold font-mono leading-none mt-1 z-10"
+            <span className="hidden sm:block text-[8px] font-bold font-mono leading-none mt-1 z-10"
                 style={{ color: isSet ? `${color}CC` : 'rgba(255,255,255,0.1)' }}>
                 {isSet ? formatCueTime(cueTime) : `CUE ${index + 1}`}
             </span>
@@ -255,7 +254,7 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
     const progressPct = deckState.duration > 0 ? (deckState.currentTime / deckState.duration) * 100 : 0;
 
     return (
-        <div className="relative flex flex-col gap-2 sm:gap-3 min-h-fit sm:h-full rounded-[1.5rem] sm:rounded-[2rem] border p-4 sm:p-5 overflow-hidden shadow-2xl"
+        <div className="relative flex flex-col gap-1.5 sm:gap-3 h-full rounded-[1rem] sm:rounded-[2rem] border p-2 sm:p-5 overflow-hidden shadow-2xl"
             style={{
                 background: `linear-gradient(160deg, ${deckBg} 0%, #050E1A 100%)`,
                 backdropFilter: 'blur(20px)',
@@ -268,8 +267,8 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
                 style={{ background: accentColor }} />
 
             {/* Top: Deck label + BPM + controls */}
-            <div className="flex items-center gap-2 flex-wrap">
-                <div className="text-lg sm:text-xl font-black italic tracking-tighter"
+            <div className="flex items-center gap-1 sm:gap-2 flex-wrap">
+                <div className="text-sm sm:text-xl font-black italic tracking-tighter"
                     style={{ color: accentColor, textShadow: `0 0 12px ${accentColor}` }}>
                     DECK {label}
                 </div>
@@ -314,7 +313,7 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
 
             {/* NEW: Source Selector Section */}
             <div className="bg-black/40 rounded-xl overflow-hidden border border-white/5">
-                <div className="flex h-8 bg-black/20">
+                <div className="flex h-6 sm:h-8 bg-black/20">
                     {['LOCAL', 'STREAM', 'ROOM'].map(tab => (
                         <button key={tab}
                             onClick={() => { setSourceTab(tab); setSourceOpened(true); }}
@@ -554,7 +553,7 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
             {/* Waveform + seekbar */}
             <div className="flex flex-col gap-1">
                 {/* Waveform strip */}
-                <div className="h-16 rounded-xl relative border overflow-hidden"
+                <div className="h-10 sm:h-16 rounded-xl relative border overflow-hidden"
                     style={{ background: '#000', borderColor: `${accentColor}25` }}>
 
                     {/* Played overlay shadow */}
@@ -626,13 +625,12 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
             </div>
 
             {/* Jog Wheel + Sliders */}
-            <div className={`flex flex-shrink-0 gap-4 items-center justify-between transition-all duration-500 ease-in-out ${otherDeckExpanded ? 'min-h-[280px]' : 'min-h-[160px] sm:min-h-[140px]'}`}>
+            <div className={`flex flex-1 min-h-0 gap-2 sm:gap-4 items-center justify-between transition-all duration-500 ease-in-out`}>
                 {/* Jog Wheel */}
                 <div className="flex-1 flex justify-center items-center">
                     <div
-                        className="relative rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing group/jog"
+                        className="relative rounded-full flex items-center justify-center cursor-grab active:cursor-grabbing group/jog w-16 h-16 sm:w-32 sm:h-32 lg:w-40 lg:h-40 shrink-0"
                         style={{
-                            width: 160, height: 160,
                             background: 'repeating-conic-gradient(#1a1a1a 0 1deg, #111111 1deg 2deg)',
                             border: `8px solid #050505`,
                             boxShadow: jogActive
@@ -703,20 +701,21 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
             </div>
 
             {/* Transport + Hot Cues */}
-            <div className="flex flex-col gap-2.5 mt-1">
+            <div className="flex flex-col gap-1.5 sm:gap-2.5 mt-1">
                 {/* Play/Cue buttons */}
                 <div className="flex gap-2">
                     <button
-                        className="flex-1 py-3.5 text-sm font-black rounded-xl border transition-all active:scale-95"
+                        className="flex-1 py-2 sm:py-3.5 text-xs sm:text-sm font-black rounded-xl border transition-all active:scale-95 flex items-center justify-center gap-1"
                         style={deckState.cue
                             ? { background: '#F2C21A', color: '#000', borderColor: '#F2C21A', boxShadow: '0 0 18px rgba(242,194,26,0.5)' }
                             : { background: 'rgba(0,0,0,0.3)', borderColor: 'rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.3)' }}
                         onMouseDown={() => { onControlChange('cue', true); onControlChange('play', true); }}
                         onMouseUp={() => { onControlChange('cue', false); onControlChange('play', false); }}>
+                        <div className="w-2 h-2 rounded-full hidden sm:block bg-current opacity-50" />
                         CUE
                     </button>
                     <button
-                        className="flex-1 py-3.5 text-sm font-black rounded-xl border transition-all active:scale-95"
+                        className="flex-1 py-2 sm:py-3.5 text-xs sm:text-sm font-black rounded-xl border transition-all active:scale-95 flex items-center justify-center gap-1"
                         style={deckState.isPlaying
                             ? { background: '#00FF88', color: '#000', borderColor: '#00FF88', boxShadow: '0 0 18px rgba(0,255,136,0.5)' }
                             : { background: `${accentColor}15`, borderColor: `${accentColor}40`, color: accentColor }}
@@ -726,7 +725,7 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
                 </div>
 
                 {/* Hot Cue Pads 1–8 */}
-                <div className="grid grid-cols-4 gap-2">
+                <div className="grid grid-cols-8 sm:grid-cols-4 gap-1 sm:gap-2">
                     {[0, 1, 2, 3, 4, 5, 6, 7].map(i => (
                         <HotCuePad
                             key={i}
