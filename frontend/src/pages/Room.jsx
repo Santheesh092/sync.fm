@@ -1209,29 +1209,32 @@ export default function Room() {
                             </div>
 
                             {/* Mobile action bar for source/share - Polished DJ Style */}
-                            <div className="hide-desktop grid grid-cols-2 gap-2 p-1">
-                                <label className="group relative flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95 cursor-pointer overflow-hidden shadow-xl"
+                            <div className="hide-desktop flex gap-2 p-1">
+                                {/* Library Button */}
+                                <button
+                                    onClick={() => setIsMusicBrowserOpen(true)}
+                                    className="flex-1 relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] group/btn"
                                     style={{
-                                        background: 'rgba(255,255,255,0.03)',
-                                        border: '1px solid rgba(255,255,255,0.08)',
-                                        backdropFilter: 'blur(10px)'
-                                    }}>
-                                    <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <div className="w-8 h-8 rounded-full bg-yellow-400/10 flex items-center justify-center border border-yellow-400/20">
-                                        <Upload size={14} className="text-yellow-400" />
-                                    </div>
-                                    <span className="text-[9px] font-black uppercase tracking-tighter text-gray-400">Add Audio</span>
-                                    <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg" onChange={handleFileUpload} className="hidden" />
-                                </label>
+                                        background: 'rgba(0, 207, 255, 0.1)',
+                                        border: '1px solid rgba(0, 207, 255, 0.25)',
+                                        boxShadow: '0 4px 15px rgba(0, 207, 255, 0.1)'
+                                    }}
+                                >
+                                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                                    <Music size={14} className="text-[#00CFFF]" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#00CFFF]">Library</span>
+                                </button>
 
+                                {/* Mic Button */}
                                 <button
                                     onClick={toggleMic}
-                                    className="group relative flex flex-col items-center justify-center gap-1.5 py-3 rounded-2xl transition-all active:scale-95 overflow-hidden shadow-xl"
+                                    className="flex-1 relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] group/btn"
                                     style={{
                                         background: isMicEnabled ? 'rgba(239, 68, 68, 0.1)' : 'rgba(255,255,255,0.03)',
                                         border: isMicEnabled ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid rgba(255,255,255,0.08)',
                                         backdropFilter: 'blur(10px)'
-                                    }}>
+                                    }}
+                                >
                                     <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                                     <div className={`w-8 h-8 rounded-full flex items-center justify-center border ${isMicEnabled ? 'bg-red-500/20 border-red-500/40 animate-pulse' : 'bg-white/5 border-white/10'}`}>
                                         {isMicEnabled ? <Mic size={14} className="text-red-400" /> : <MicOff size={14} className="text-gray-500" />}
