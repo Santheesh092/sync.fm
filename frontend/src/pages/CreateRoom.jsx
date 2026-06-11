@@ -7,7 +7,7 @@ import { QRCodeCanvas } from 'qrcode.react';
 const SERVER_URL = '';
 
 const ROOM_TYPES = [
-    { id: 'party', emoji: '🎉', label: 'Party Mode', path: 'party', desc: 'Music sync for gatherings' },
+    { id: 'party', emoji: '🎉', label: 'Room Mode', path: 'party', desc: 'Music sync for gatherings' },
     // { id: 'cafe', emoji: '☕', label: 'Café / Restaurant', path: 'cafe', desc: 'Ambient scheduled playlists' },
     // { id: 'temple', emoji: '🛕', label: 'Temple Broadcast', path: 'temple', desc: 'Prayer & bhajan streaming' },
     // { id: 'announcement', emoji: '📢', label: 'Public Announcement', path: 'announcement', desc: 'Live mic broadcasting' },

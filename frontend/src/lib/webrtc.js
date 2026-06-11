@@ -28,6 +28,9 @@ export class WebRTCManager {
             }
         };
 
+        // Queue for ICE candidates that arrive before remote description is set
+        pc.pendingCandidates = [];
+
         const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
         const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || isIOS;
 
@@ -90,10 +93,26 @@ export class WebRTCManager {
         const pc = this._createConnection(senderId);
         this.conns.set(senderId, pc);
 
+        // Set remote description for incoming offer (listener side)
         await pc.setRemoteDescription(new RTCSessionDescription(offer));
+        // Ensure we are in the correct state before creating an answer
+        if (pc.signalingState !== 'have-remote-offer') {
+            console.warn('[WebRTC] Unexpected signaling state before answer:', pc.signalingState, 'from', senderId);
+            return;
+        }
+        // Apply any ICE candidates that arrived early
+        if (pc.pendingCandidates && pc.pendingCandidates.length) {
+            for (const cand of pc.pendingCandidates) {
+                try {
+                    await pc.addIceCandidate(new RTCIceCandidate(cand));
+                } catch (e) {
+                    console.error('[WebRTC] Error adding queued ICE candidate', e);
+                }
+            }
+            pc.pendingCandidates = [];
+        }
         const answer = await pc.createAnswer();
         await pc.setLocalDescription(answer);
-
         this.socket.emit('answer', { targetId: senderId, answer });
     }
 
@@ -102,7 +121,15 @@ export class WebRTCManager {
         console.log(`[WebRTC] Received answer from ${senderId}`);
         const pc = this.conns.get(senderId);
         if (pc) {
-            await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            // Ensure we are in the correct state before applying the remote answer.
+                        // Ensure we are in the correct state before applying the remote answer.
+            if (pc.signalingState === 'have-local-offer') {
+                await pc.setRemoteDescription(new RTCSessionDescription(answer));
+            } else if (pc.signalingState === 'stable') {
+                console.warn('[WebRTC] Remote answer already applied, ignoring duplicate.');
+            } else {
+                console.warn('[WebRTC] Unexpected signaling state for answer:', pc.signalingState, 'from', senderId);
+            }
         }
     }
 
@@ -110,6 +137,13 @@ export class WebRTCManager {
     async handleIceCandidate({ senderId, candidate }) {
         const pc = this.conns.get(senderId);
         if (pc) {
+            // If remote description not yet set, queue the candidate
+            if (!pc.remoteDescription || pc.remoteDescription.type === '') {
+                pc.pendingCandidates = pc.pendingCandidates || [];
+                pc.pendingCandidates.push(candidate);
+                console.warn('[WebRTC] Queued ICE candidate until remote description is set');
+                return;
+            }
             try {
                 await pc.addIceCandidate(new RTCIceCandidate(candidate));
             } catch (e) {

@@ -26,7 +26,7 @@ import { WebRTCManager } from '../lib/webrtc';
 import { useMusic } from '../store/MusicContext';
 
 const ROOM_TYPE_LABELS = {
-    'party': 'Party Mode',
+    'party': 'Room Mode',
     'cafe': 'Café / Restaurant',
     'temple': 'Temple Broadcast',
     'announcement': 'Public Announcement',
@@ -175,6 +175,7 @@ export default function Room() {
     const [rotation, setRotation] = useState(0);
     const isJogging = useRef(false);
     const lastAngle = useRef(0);
+    const isHost = true; // Assume this client is the host
     const [jogActive, setJogActive] = useState(false);
     const progressPct = duration > 0 ? (currentTime / duration) * 100 : 0;
 
@@ -524,8 +525,14 @@ export default function Room() {
     useEffect(() => {
         if (gainRef.current) {
             gainRef.current.gain.value = isMuted ? 0 : volume;
+            if (isHost && socketRef.current) {
+                socketRef.current.emit('control:volume', { deviceId: 'host', volume });
+            }
         } else if (audioRef.current) {
             audioRef.current.volume = isMuted ? 0 : volume;
+            if (isHost && socketRef.current) {
+                socketRef.current.emit('control:volume', { deviceId: 'host', volume });
+            }
         }
     }, [volume, isMuted]);
 
