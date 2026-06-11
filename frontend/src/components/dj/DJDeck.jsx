@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import {
-    Upload, Link2, Users, FileAudio, Globe,
+    Upload, Link2, Users, FileAudio, Music, Globe,
     Waves, RotateCw, Repeat, Home, Zap,
     Plus, Clock, Info, ExternalLink
 } from 'lucide-react';
