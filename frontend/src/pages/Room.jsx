@@ -706,8 +706,15 @@ export default function Room() {
     // ── Playback Controls ─────────────────────────────────────────────────────
     const handlePlay = () => {
         initAudioAPI();
-        audioRef.current?.play();
-        socketRef.current?.emit('control:play', { position: audioRef.current?.currentTime });
+        const audio = audioRef.current;
+        if (!audio) return;
+        const playPromise = audio.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(err => {
+                console.error('Audio playback failed (likely due to autoplay restrictions):', err);
+            });
+        }
+        socketRef.current?.emit('control:play', { position: audio.currentTime });
     };
 
     const handlePause = () => {
