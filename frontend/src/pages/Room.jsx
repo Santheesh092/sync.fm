@@ -23,6 +23,7 @@ import MusicBrowser from '../components/MusicBrowser';
 import { createEQChain, applyEffect } from '../lib/effectUtils';
 import { SyncEngine } from '../lib/syncEngine';
 import { WebRTCManager } from '../lib/webrtc';
+import { useMusic } from '../store/MusicContext';
 
 const ROOM_TYPE_LABELS = {
     'party': 'Party Mode',
@@ -146,6 +147,18 @@ const BOTTOM_TABS = [
 export default function Room() {
     const { id: roomId } = useParams();
     const navigate = useNavigate();
+    const isReloadingRef = useRef(false);
+
+    // Detect page reload via beforeunload event
+    useEffect(() => {
+        const handleBeforeUnload = () => {
+            isReloadingRef.current = true;
+        };
+        window.addEventListener('beforeunload', handleBeforeUnload);
+        return () => {
+            window.removeEventListener('beforeunload', handleBeforeUnload);
+        };
+    }, []);
 
     // ── Audio State ─────────────────────────────────────────────────────────
     const [isPlaying, setIsPlaying] = useState(false);
@@ -158,6 +171,7 @@ export default function Room() {
     const [trackInfo, setTrackInfo] = useState({ title: 'No track loaded', artist: '', url: null });
     const [queue, setQueue] = useState([]);
     const [queueIndex, setQueueIndex] = useState(0);
+    const { dispatch } = useMusic();
     const [rotation, setRotation] = useState(0);
     const isJogging = useRef(false);
     const lastAngle = useRef(0);
@@ -373,6 +387,10 @@ export default function Room() {
         return () => {
             clearInterval(syncInterval.current);
             sync.destroy();
+            // Cleanup: clear library only if not a page reload
+            if (!isReloadingRef.current) {
+                dispatch({ type: 'CLEAR_LIBRARY' });
+            }
             socket.disconnect();
         };
     }, [roomId]);
@@ -767,8 +785,8 @@ export default function Room() {
                     <button
                         onClick={() => {
                             const confirmTypes = ['dj', 'party', 'cafe', 'temple', 'announcement', 'safety', 'event'];
+                            // Proceed with navigation; cleanup will handle clearing unless it's a reload
                             if (roomInfo && confirmTypes.includes(roomInfo.type)) {
-                                // Set a generic or type‑specific message
                                 const titleMap = {
                                     dj: 'Leave DJ Room',
                                     party: 'Leave Party Mode',

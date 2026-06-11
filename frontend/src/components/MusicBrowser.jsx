@@ -13,6 +13,7 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
   const [isScanning, setIsScanning] = useState(false);
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [activeAlbum, setActiveAlbum] = useState(null); // For drill-down Album View
+  const [duplicateTrackIds, setDuplicateTrackIds] = useState([]); // Tracks attempted to add again
 
   const hasDirectoryPicker = typeof window.showDirectoryPicker === 'function';
 
@@ -48,7 +49,11 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
         const files = await scanDirectory();
         await processFiles(files);
       } else {
-        fileInputRef.current && fileInputRef.current.click();
+        // Reset the file input value to ensure onChange fires even if the same file is selected again
+          if (fileInputRef.current) {
+            fileInputRef.current.value = null;
+          }
+          fileInputRef.current && fileInputRef.current.click();
       }
     } catch (e) {
       console.error(e);
@@ -104,7 +109,27 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
       setScanProgress({ current: Math.min(i + batchSize, files.length), total: files.length });
     }
     
-    dispatch({ type: 'ADD_TRACKS', payload: parsedTracks });
+    // Filter out duplicates based on title, artist, and duration (simple heuristic)
+    const existing = state.tracks || [];
+    const uniqueTracks = parsedTracks.filter((t) => {
+      return !existing.some((e) => e.title === t.title && e.artist === t.artist && e.duration === t.duration);
+    });
+    
+    const duplicateTracks = parsedTracks.filter((t) => {
+      return existing.some((e) => e.title === t.title && e.artist === t.artist && e.duration === t.duration);
+    });
+    
+    // Highlight duplicate attempts in UI
+    if (duplicateTracks.length > 0) {
+      const dupIds = duplicateTracks.map(t => `${t.title}-${t.artist}-${t.duration}`);
+      setDuplicateTrackIds(dupIds);
+      // Clear highlight after a short delay (e.g., 3 seconds)
+      setTimeout(() => setDuplicateTrackIds([]), 3000);
+    }
+    
+    if (uniqueTracks.length > 0) {
+      dispatch({ type: 'ADD_TRACKS', payload: uniqueTracks });
+    }
     setIsScanning(false);
   };
 
@@ -341,7 +366,7 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
                     </thead>
                     <tbody className="divide-y divide-white/5 font-medium">
                       {state.filteredTracks.map((t, idx) => (
-                        <tr key={idx} className="hover:bg-white/5 transition-colors group">
+                        <tr key={idx} className={`hover:bg-white/5 transition-colors group ${duplicateTrackIds.includes(`${t.title}-${t.artist}-${t.duration}`) ? 'opacity-50 pointer-events-none blur-sm' : ''}`}>
                           <td className="p-4 pl-6 flex items-center gap-3 max-w-[220px]">
                             <div 
                               className="w-8 h-8 rounded-lg flex-shrink-0 flex items-center justify-center relative overflow-hidden"
@@ -376,7 +401,7 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
                   {state.filteredTracks.map((t, idx) => (
                     <div 
                       key={idx} 
-                      className="glass-panel p-4 rounded-3xl border border-white/5 bg-white/2 hover:border-[#00CFFF]/30 hover:bg-[#00CFFF]/5 transition-all duration-300 group flex flex-col relative overflow-hidden"
+                      className={`glass-panel p-4 rounded-3xl border border-white/5 bg-white/2 hover:border-[#00CFFF]/30 hover:bg-[#00CFFF]/5 transition-all duration-300 group flex flex-col relative overflow-hidden ${duplicateTrackIds.includes(`${t.title}-${t.artist}-${t.duration}`) ? 'opacity-50 pointer-events-none blur-sm' : ''}`}
                     >
                       <div 
                         className="w-full aspect-square rounded-2xl mb-4 relative overflow-hidden flex items-center justify-center shadow-lg group-hover:scale-[1.03] transition-all duration-300"
