@@ -293,6 +293,8 @@ export default function Room() {
             const deviceName = isMobile ? 'Mobile Device' : 'Desktop';
             socket.emit('room:create', {
                 roomId,
+                roomType: roomInfo?.type,
+                roomName: roomInfo?.name,
                 deviceName,
                 deviceType: isMobile ? 'mobile' : 'desktop',
             });

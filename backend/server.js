@@ -248,6 +248,9 @@ io.on('connection', (socket) => {
         if (!room) {
             room = createRoom({ id: roomId, type: roomType || 'party', name: roomName || 'My Room', hostId: socket.id });
         } else {
+            // Update room type and name if provided (host reconnection case)
+            if (roomType) room.type = roomType;
+            if (roomName) room.name = roomName;
             // Remove previous host device to prevent duplicates on reload
             for (const [deviceId, device] of room.devices.entries()) {
                 if (device.isHost) {
