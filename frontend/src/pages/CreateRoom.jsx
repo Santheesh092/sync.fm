@@ -40,10 +40,13 @@ export default function CreateRoom() {
     const selectedType = ROOM_TYPES.find(t => t.id === roomType);
 
     const handleLaunch = async () => {
-        if (!roomName.trim()) return alert('Please enter a room name');
+        if (!roomName.trim()) {
+            alert('Please enter a room name');
+            return;
+        }
         setLoading(true);
         try {
-            // Pre-flight health check
+            // Optional health check
             try {
                 const healthRes = await fetch('/api/health');
                 if (!healthRes.ok) console.warn('Backend health check failed, proceeding anyway...');
@@ -78,7 +81,7 @@ export default function CreateRoom() {
             console.error('[CreateRoom] Error:', err);
             alert(`Error: ${err.message}`);
         } finally {
-            setLoading(false);
+            setLoading(false); // Duplicate handleLaunch removed – file upload logic moved elsewhere
         }
     };
 

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import DJDeck from './dj/DJDeck';
 import DJMixer from './dj/DJMixer';
 import DJPads from './dj/DJPads';
+import MusicBrowser from './MusicBrowser';
 import { 
     Mic, Square, Play, Pause, Save, Share2, 
     Download, Trash2, Clock, Activity, AlertCircle,
@@ -62,6 +63,7 @@ export default function DJConsole({ audioContext, roomName }) {
     });
     const [showRecordingPanel, setShowRecordingPanel] = useState(false);
     const [recordingHistory, setRecordingHistory] = useState([]);
+    const [libraryBrowserState, setLibraryBrowserState] = useState({ isOpen: false, deckId: 'A' });
 
     // Deck Expansion States (for dynamic heights)
     const [deckAExpanded, setDeckAExpanded] = useState(false);
@@ -239,6 +241,9 @@ export default function DJConsole({ audioContext, roomName }) {
         }
         else if (control === 'loadStream') {
             handleStreamLoad(deckId, value);
+        }
+        else if (control === 'openLibrary') {
+            setLibraryBrowserState({ isOpen: true, deckId });
         }
     }, [isReady]);
 
@@ -637,6 +642,16 @@ export default function DJConsole({ audioContext, roomName }) {
                         )}
                     </div>
                 </div>
+            )}
+            {libraryBrowserState.isOpen && (
+                <MusicBrowser
+                    mode="dj"
+                    onLoadDeck={(deckId, file) => {
+                        handleFileLoad(libraryBrowserState.deckId, file);
+                        setLibraryBrowserState({ isOpen: false, deckId: 'A' });
+                    }}
+                    onClose={() => setLibraryBrowserState({ isOpen: false, deckId: 'A' })}
+                />
             )}
         </div>
     );

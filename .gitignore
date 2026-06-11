@@ -42,3 +42,6 @@ Thumbs.db
 # Build logs and errors
 frontend/build_error.txt
 frontend/debug_build.txt
+
+.vercel
+.env*

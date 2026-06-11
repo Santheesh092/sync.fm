@@ -8,8 +8,11 @@
     "backend": {
       "root": "backend",
       "routePrefix": "/_/backend",
-      "entrypoint": "backend/server.js",
+      "entrypoint": "server.js",
       "framework": "node"
     }
-  }
+  },
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/_/backend/api/$1" }
+  ]
 }

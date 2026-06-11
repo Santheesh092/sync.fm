@@ -8,7 +8,8 @@ const fs = require('fs');
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '200mb' }));
+app.use(express.urlencoded({ limit: '200mb', extended: true }));
 
 // Request Logger
 app.use((req, res, next) => {
@@ -17,7 +18,7 @@ app.use((req, res, next) => {
 });
 
 // Serve uploads statically
-const uploadsDir = path.join(__dirname, 'uploads');
+const uploadsDir = path.join('/tmp', 'uploads');
 if (!fs.existsSync(uploadsDir)) fs.mkdirSync(uploadsDir);
 // Serve uploads with explicit CORS for cross-device sync
 app.use('/uploads', express.static(uploadsDir, {
@@ -32,7 +33,7 @@ const storage = multer.diskStorage({
     destination: (req, file, cb) => cb(null, uploadsDir),
     filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname.replace(/[^a-zA-Z0-9.-]/g, '_'))
 });
-const upload = multer({ storage });
+const upload = multer({ storage, limits: { fileSize: 100 * 1024 * 1024 } });
 
 const server = http.createServer(app);
 const io = new Server(server, {
@@ -85,12 +86,20 @@ const getClientIp = (req) => {
 
 // ─── REST API ──────────────────────────────────────────────────────────────
 app.get('/api/health', (req, res) => {
-    res.json({ 
-        status: 'UP', 
-        timestamp: Date.now(),
-        rooms: rooms.size,
-        uptime: process.uptime()
-    });
+  res.setHeader('Content-Type', 'text/plain');
+  res.status(200).send('OK');
+});
+
+// HEAD request for health check
+app.head('/api/health', (req, res) => {
+  res.setHeader('Content-Type', 'text/plain');
+  res.status(200).send('OK');
+});
+
+// HEAD request for health check (some platforms use HEAD)
+app.head('/api/health', (req, res) => {
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).json({ status: 'UP', timestamp: Date.now(), rooms: rooms.size, uptime: process.uptime() });
 });
 
 app.get('/api/time', (req, res) => {

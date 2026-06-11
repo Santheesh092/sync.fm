@@ -334,10 +334,19 @@ export default function DJDeck({ label, deckState, engineDeck, onControlChange, 
                     <div className="p-3 border-t border-white/5 animate-in fade-in slide-in-from-top-1 duration-200">
                         {sourceTab === 'LOCAL' && (
                             <div className="flex flex-col gap-2">
-                                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 hover:border-white/20 transition-all cursor-pointer group">
+                                <button
+                                    onClick={() => onControlChange('openLibrary')}
+                                    className="w-full py-3 bg-white/5 border border-white/10 hover:bg-white/10 text-[10px] font-black tracking-widest uppercase rounded-xl transition-all flex items-center justify-center gap-2"
+                                    style={{ borderColor: accentColor + '35', color: accentColor }}
+                                >
+                                    <Music size={12} /> Open Library Browser
+                                </button>
+
+                                <label className="flex flex-col items-center justify-center p-4 border-2 border-dashed border-white/10 rounded-xl hover:bg-white/5 hover:border-white/20 transition-all cursor-pointer group"
+                                    style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
                                     <input type="file" accept="audio/*" className="hidden" onChange={(e) => { if (e.target.files[0]) onLoadFile(e.target.files[0]); }} />
                                     <Upload size={20} className="text-white/20 group-hover:text-white/60 mb-1" />
-                                    <span className="text-[10px] uppercase font-black text-white/40">Drop audio or click to browse</span>
+                                    <span className="text-[10px] uppercase font-black text-white/40">Drop single track or click</span>
                                     <div className="flex gap-1 mt-2">
                                         {['MP3', 'WAV', 'FLAC', 'AAC', 'OGG'].map(b => (
                                             <span key={b} className="bg-white/5 px-1.5 py-0.5 rounded text-[7px] text-white/30 border border-white/5">{b}</span>

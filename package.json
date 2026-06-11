@@ -8,7 +8,9 @@
     "build": "npm run build --prefix frontend",
     "build:backend": "echo 'No build needed for backend'",
     "start": "npm start --prefix backend",
-    "dev": "concurrently --kill-others --prefix \"[{name}]\" --names \"backend,frontend\" --prefix-colors \"yellow,cyan\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\""
+    "dev": "concurrently --kill-others --prefix \"[{name}]\" --names \"backend,frontend\" --prefix-colors \"yellow,cyan\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "vercel": "vercel --prod",
+    "deploy": "npm run vercel"
   },
   "devDependencies": {
     "concurrently": "^8.0.0"

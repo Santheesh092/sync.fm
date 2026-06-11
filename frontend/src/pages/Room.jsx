@@ -19,6 +19,7 @@ import SpatialPanel from '../components/SpatialPanel';
 import DJConsole from '../components/DJConsole';
 import ConfirmModal from '../components/ConfirmModal';
 import AnalyticsDashboard from '../components/AnalyticsDashboard';
+import MusicBrowser from '../components/MusicBrowser';
 import { createEQChain, applyEffect } from '../lib/effectUtils';
 import { SyncEngine } from '../lib/syncEngine';
 import { WebRTCManager } from '../lib/webrtc';
@@ -33,7 +34,8 @@ const ROOM_TYPE_LABELS = {
     'dj': 'DJ Mode',
 };
 
-const SERVER_URL = '';
+const SERVER_URL = import.meta.env.VITE_BACKEND_URL || '';
+// ... (no other changes)
 
 // Memoized Waveform Strip for performance
 // Memoized Waveform Strip for simulated background
@@ -226,6 +228,7 @@ export default function Room() {
     const [isMicEnabled, setIsMicEnabled] = useState(false);
     const [showAnalytics, setShowAnalytics] = useState(false);
     const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+    const [isMusicBrowserOpen, setIsMusicBrowserOpen] = useState(false);
     // Title and description for the confirmation modal
     const [confirmTitle, setConfirmTitle] = useState('');
     const [confirmDesc, setConfirmDesc] = useState('');
@@ -510,15 +513,60 @@ export default function Room() {
     const loadTrack = useCallback((url, title = 'Live Stream', artist = '') => {
         const audio = audioRef.current;
         if (!audio) return;
-        audio.src = url;
-        audio.load();
-        setTrackInfo({ url, title, artist });
-        socketRef.current?.emit('control:track', { url, title, artist });
+        // Reset any existing playback
+        audio.pause();
+        audio.currentTime = 0;
+        // Ensure URL is absolute
+        const srcUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
+        // Determine MIME type from extension (basic mapping)
+        const ext = srcUrl.split('.').pop().toLowerCase();
+        let mime = '';
+        if (ext === 'mp3') mime = 'audio/mpeg';
+        else if (ext === 'wav') mime = 'audio/wav';
+        else if (ext === 'ogg') mime = 'audio/ogg';
+        else if (ext === 'flac') mime = 'audio/flac';
+        // Verify browser can play the format (if MIME detected)
+        if (mime && audio.canPlayType(mime) === '') {
+            console.error('Browser cannot play this audio format:', mime);
+            alert('Unsupported audio format. Please upload MP3, WAV, OGG, or FLAC files.');
+            return;
+        }
+        console.log('Fetching track URL:', srcUrl);
+        // Fetch as Blob to ensure compatibility
+        fetch(srcUrl, { method: 'GET' })
+            .then(res => {
+                if (!res.ok) throw new Error(`Failed to fetch audio: ${res.status}`);
+                return res.blob();
+            })
+            .then(blob => {
+                // Revoke previous object URL if any
+                if (audio.dataset.blobUrl) URL.revokeObjectURL(audio.dataset.blobUrl);
+                const blobUrl = URL.createObjectURL(blob);
+                audio.dataset.blobUrl = blobUrl;
+                audio.src = blobUrl;
+                audio.load();
+                setTrackInfo({ url: srcUrl, title, artist });
+                socketRef.current?.emit('control:track', { url: srcUrl, title, artist });
+            })
+            .catch(err => {
+                console.error('Audio loading error:', err);
+                alert('Failed to load the audio file.');
+            });
+        // Attach error handler for playback issues
+        audio.onerror = (e) => {
+            console.error('Audio playback error:', e);
+            alert('Failed to play the audio. The source may be unsupported or corrupted.');
+        };
     }, []);
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
         if (!file) return;
+        // Validate file type – only allow audio/*
+        if (!file.type.startsWith('audio/')) {
+            alert('Unsupported file type. Please upload an audio file (e.g., MP3, WAV).');
+            return;
+        }
         initAudioAPI();
 
         // Show temporary loading entry in queue (optional visual feedback)
@@ -547,9 +595,41 @@ export default function Room() {
             // Auto-load if this is the first item or if no track is playing
             loadTrack(data.url, newEntry.title, newEntry.artist);
         } catch (err) {
-            console.error("Upload failed", err);
+            console.error('Upload failed', err);
             setQueue(prev => prev.filter(t => t.url !== ''));
-            alert('Failed to upload track');
+            alert(`Upload failed: ${err.message}`);
+        }
+    };
+
+    const handlePlayLocalTrack = async (file, track) => {
+        setIsMusicBrowserOpen(false);
+        initAudioAPI();
+        
+        const localUrl = URL.createObjectURL(file);
+        loadTrack(localUrl, track.title, track.artist);
+        
+        try {
+            const formData = new FormData();
+            formData.append('file', file);
+            
+            const res = await fetch('/api/upload', {
+                method: 'POST',
+                body: formData,
+            });
+            if (res.ok) {
+                const data = await res.json();
+                
+                const newEntry = { url: data.url, title: track.title, artist: track.artist };
+                setQueue(prev => {
+                    const filtered = prev.filter(t => t.title !== track.title);
+                    return [...filtered, newEntry];
+                });
+                
+                setTrackInfo(prev => ({ ...prev, url: data.url }));
+                socketRef.current?.emit('control:track', { url: data.url, title: track.title, artist: track.artist });
+            }
+        } catch (err) {
+            console.error('Background upload failed:', err);
         }
     };
 
@@ -833,9 +913,21 @@ export default function Room() {
                                 <p className="text-xs mt-1 truncate" style={{ color: '#6b8fa8' }}>{trackInfo.artist || 'Unknown Artist'}</p>
                             </div>
 
-                            {/* Source buttons */}
                             {/* Source buttons (DJ Style) */}
                             <div className="flex gap-2 mb-6">
+                                <button
+                                    onClick={() => setIsMusicBrowserOpen(true)}
+                                    className="flex-1 relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98] group/btn"
+                                    style={{
+                                        background: 'rgba(0, 207, 255, 0.1)',
+                                        border: '1px solid rgba(0, 207, 255, 0.25)',
+                                        boxShadow: '0 4px 15px rgba(0, 207, 255, 0.1)'
+                                    }}>
+                                    <div className="absolute inset-0 bg-gradient-to-br from-cyan-400/10 to-transparent opacity-0 group-hover/btn:opacity-100 transition-opacity" />
+                                    <Music size={14} className="text-[#00CFFF]" />
+                                    <span className="text-[10px] font-bold uppercase tracking-widest text-[#00CFFF]">Library</span>
+                                </button>
+
                                 <label className="flex-1 cursor-pointer group/btn relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                                     style={{
                                         background: 'rgba(255,255,255,0.03)',
@@ -1192,6 +1284,14 @@ export default function Room() {
                 <AnalyticsDashboard
                     devices={devices}
                     onClose={() => setShowAnalytics(false)}
+                />
+            )}
+
+            {isMusicBrowserOpen && (
+                <MusicBrowser 
+                    mode="room" 
+                    onSelectTrack={handlePlayLocalTrack} 
+                    onClose={() => setIsMusicBrowserOpen(false)} 
                 />
             )}
         </div>
