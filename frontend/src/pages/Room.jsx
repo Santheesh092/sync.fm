@@ -502,9 +502,16 @@ export default function Room() {
         const onPlay = () => setIsPlaying(true);
         const onPause = () => setIsPlaying(false);
         const onEnded = () => {
+            // Always restart the current track when it ends
             setIsPlaying(false);
-            if (loop === 'one') audio.play();
-            else handleNext();
+            // Reset time and replay
+            audio.currentTime = 0;
+            audio.play().catch(err => {
+                console.error('Playback restart error:', err);
+                // Attempt a simple reload if playback fails
+                audio.load();
+                audio.play().catch(e => console.error('Retry failed:', e));
+            });
         };
 
         audio.addEventListener('timeupdate', onTime);
@@ -543,6 +550,7 @@ export default function Room() {
         // Reset any existing playback
         audio.pause();
         audio.currentTime = 0;
+        audio.loop = loop === 'one';
         // Ensure URL is absolute
         const srcUrl = url.startsWith('/') ? `${window.location.origin}${url}` : url;
         // Determine MIME type from extension (basic mapping)
@@ -571,6 +579,7 @@ export default function Room() {
                 const blobUrl = URL.createObjectURL(blob);
                 audio.dataset.blobUrl = blobUrl;
                 audio.src = blobUrl;
+                audio.dataset.retry = ''; // Reset retry counter on new load
                 audio.load();
                 setTrackInfo({ url: srcUrl, title, artist });
                 socketRef.current?.emit('control:track', { url: srcUrl, title, artist });
@@ -582,9 +591,16 @@ export default function Room() {
         // Attach error handler for playback issues
         audio.onerror = (e) => {
             console.error('Audio playback error:', e);
-            alert('Failed to play the audio. The source may be unsupported or corrupted.');
+            // Attempt to reload the source once on error
+            if (!audio.dataset.retry) {
+                audio.dataset.retry = 'true';
+                audio.load();
+                audio.play().catch(err => console.error('Retry play failed:', err));
+            } else {
+                alert('Failed to play the audio. The source may be unsupported or corrupted.');
+            }
         };
-    }, []);
+    }, [loop]);
 
     const handleFileUpload = async (e) => {
         const file = e.target.files[0];
