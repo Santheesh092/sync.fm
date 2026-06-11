@@ -606,27 +606,27 @@ export default function Room() {
     const handlePlayLocalTrack = async (file, track) => {
         setIsMusicBrowserOpen(false);
         initAudioAPI();
-        
+
         const localUrl = URL.createObjectURL(file);
         loadTrack(localUrl, track.title, track.artist);
-        
+
         try {
             const formData = new FormData();
             formData.append('file', file);
-            
+
             const res = await fetch('/api/upload', {
                 method: 'POST',
                 body: formData,
             });
             if (res.ok) {
                 const data = await res.json();
-                
+
                 const newEntry = { url: data.url, title: track.title, artist: track.artist };
                 setQueue(prev => {
                     const filtered = prev.filter(t => t.title !== track.title);
                     return [...filtered, newEntry];
                 });
-                
+
                 setTrackInfo(prev => ({ ...prev, url: data.url }));
                 socketRef.current?.emit('control:track', { url: data.url, title: track.title, artist: track.artist });
             }
@@ -930,7 +930,7 @@ export default function Room() {
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-[#00CFFF]">Library</span>
                                 </button>
 
-                                <label className="flex-1 cursor-pointer group/btn relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
+                                {/* <label className="flex-1 cursor-pointer group/btn relative overflow-hidden h-10 flex items-center justify-center gap-2 rounded-xl transition-all hover:scale-[1.02] active:scale-[0.98]"
                                     style={{
                                         background: 'rgba(255,255,255,0.03)',
                                         border: '1px solid rgba(255,255,255,0.08)',
@@ -940,7 +940,7 @@ export default function Room() {
                                     <Upload size={14} color="#F2C21A" />
                                     <span className="text-[10px] font-bold uppercase tracking-widest text-gray-300">File</span>
                                     <input type="file" accept="audio/*,.mp3,.wav,.flac,.ogg" onChange={handleFileUpload} className="hidden" />
-                                </label>
+                                </label> */}
 
                                 <button
                                     onClick={toggleMic}
@@ -959,7 +959,7 @@ export default function Room() {
                             </div>
 
                             {/* Queue */}
-                            <div className="flex-1 overflow-y-auto space-y-1">
+                            {/* <div className="flex-1 overflow-y-auto space-y-1">
                                 <div className="text-xs font-semibold mb-2 flex items-center justify-between" style={{ color: '#6b8fa8' }}>
                                     <span>QUEUE</span>
                                     <span>{queue.length} tracks</span>
@@ -974,7 +974,7 @@ export default function Room() {
                                         <div className="opacity-60">{t.artist}</div>
                                     </button>
                                 ))}
-                            </div>
+                            </div> */}
                         </div>
 
                         {/* ═══ CENTER — Main Player ═══ */}
@@ -1290,10 +1290,10 @@ export default function Room() {
             )}
 
             {isMusicBrowserOpen && (
-                <MusicBrowser 
-                    mode="room" 
-                    onSelectTrack={handlePlayLocalTrack} 
-                    onClose={() => setIsMusicBrowserOpen(false)} 
+                <MusicBrowser
+                    mode="room"
+                    onSelectTrack={handlePlayLocalTrack}
+                    onClose={() => setIsMusicBrowserOpen(false)}
                 />
             )}
         </div>
