@@ -14,6 +14,7 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
   const [scanProgress, setScanProgress] = useState({ current: 0, total: 0 });
   const [activeAlbum, setActiveAlbum] = useState(null); // For drill-down Album View
   const [duplicateTrackIds, setDuplicateTrackIds] = useState([]); // Tracks attempted to add again
+  const [showClearConfirm, setShowClearConfirm] = useState(false); // Show clear library confirmation card
 
   const hasDirectoryPicker = typeof window.showDirectoryPicker === 'function';
 
@@ -143,10 +144,8 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
   };
 
   const clearLibrary = () => {
-    if (window.confirm('Are you sure you want to clear your local music library?')) {
-      dispatch({ type: 'CLEAR_LIBRARY' });
-      setActiveAlbum(null);
-    }
+    // Open confirmation card instead of immediate prompt
+    setShowClearConfirm(true);
   };
 
   // Grouping for Album View
@@ -287,7 +286,19 @@ export default function MusicBrowser({ onSelectTrack, onLoadDeck, onClose, mode 
           </div>
         </section>
 
-        {/* Scan Progress Bar Overlay */}
+          {/* Scan Progress Bar Overlay */}
+          {showClearConfirm && (
+            <div className="fixed inset-0 flex items-center justify-center bg-black/70 backdrop-blur-sm z-30">
+              <div className="glass-panel p-6 rounded-2xl border border-white/5 bg-white/2 max-w-sm w-full">
+                <h2 className="text-lg font-black text-white mb-4">Confirm Clear Library</h2>
+                <p className="text-sm text-white/70 mb-6">Are you sure you want to clear all tracks from your library? This action cannot be undone.</p>
+                <div className="flex justify-end gap-2">
+                  <button onClick={() => setShowClearConfirm(false)} className="px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded text-sm text-white">Cancel</button>
+                  <button onClick={() => { dispatch({ type: 'CLEAR_LIBRARY' }); setActiveAlbum(null); setShowClearConfirm(false); }} className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 text-red-300 rounded text-sm font-bold">Clear</button>
+                </div>
+              </div>
+            </div>
+          )}
         {isScanning && (
           <div className="absolute inset-0 bg-[#071324]/90 z-20 flex flex-col items-center justify-center p-6 backdrop-blur-sm">
             <div className="max-w-md w-full text-center">
