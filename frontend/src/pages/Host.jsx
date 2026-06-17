@@ -4,7 +4,7 @@ import { io } from 'socket.io-client';
 import { WebRTCManager } from '../lib/webrtc';
 import { Mic, Upload, Users, Copy, Radio, Activity, StopCircle } from 'lucide-react';
 
-const SERVER_URL = '';
+const SERVER_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 export default function Host() {
     const [partyId, setPartyId] = useState(null);

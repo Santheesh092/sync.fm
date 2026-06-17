@@ -42,7 +42,7 @@ const WaveformStrip = memo(({ active }) => {
     );
 });
 
-const SERVER_URL = '';
+const SERVER_URL = typeof window !== 'undefined' ? window.location.origin : '';
 
 const STATUS_TEXT = {
     connecting: 'Connecting to room audio...',
